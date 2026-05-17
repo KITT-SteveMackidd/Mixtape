@@ -18,6 +18,7 @@ import {
   getPausedBoundaryResumeAckForInactivePlayback,
 } from './src/utils/pausedBoundaryResume';
 import { getFlipCopySideIndex } from './src/utils/flipCopy';
+import { getFlipMidpointSideIndex } from './src/utils/flipMidpoint';
 
 const TICK_MS = 1000;
 
@@ -101,6 +102,7 @@ export default function App() {
   const [isSideComplete, setIsSideComplete] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
   const [pendingFlipSideIndex, setPendingFlipSideIndex] = useState<number | null>(null);
+  const [hasPassedFlipMidpoint, setHasPassedFlipMidpoint] = useState(false);
   const shouldResumeAfterFlipRef = useRef(false);
   const flipTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reelSpin = useRef(new Animated.Value(0)).current;
@@ -126,6 +128,14 @@ export default function App() {
   const scrubDirectionRef = useRef<'backward' | 'forward'>('forward');
 
   const activeSide = seedTape.sides[sideIndex];
+  const flipMidpointSide = seedTape.sides[
+    getFlipMidpointSideIndex({
+      sideIndex,
+      isFlipping,
+      pendingFlipSideIndex,
+      hasPassedFlipMidpoint,
+    })
+  ];
   const upcomingSide = seedTape.sides[sideIndex === 0 ? 1 : 0];
   const flipCopySide = seedTape.sides[
     getFlipCopySideIndex({
@@ -135,7 +145,7 @@ export default function App() {
     })
   ];
   const featuredTrack = activeSide.tracks[trackIndex];
-  const nextTrack = activeSide.tracks[trackIndex + 1] ?? null;
+  const flipMidpointNextTrack = flipMidpointSide.tracks[trackIndex + 1] ?? null;
   const featuredTrackDuration = useMemo(() => parseDuration(featuredTrack.duration), [featuredTrack.duration]);
   const progressRatio = elapsedSeconds / featuredTrackDuration;
   const boundedProgressRatio = Math.min(1, Math.max(0, progressRatio || 0));
@@ -495,6 +505,7 @@ export default function App() {
       getPausedBoundaryResumeAckForInactivePlayback({ isPlaying: shouldResumePlayback, direction: 'forward' }),
     );
     setIsFlipping(true);
+    setHasPassedFlipMidpoint(false);
     setIsPlaying(false);
     flipAnimation.setValue(0);
 
@@ -513,6 +524,7 @@ export default function App() {
       }
 
       setPendingFlipSideIndex(null);
+      setHasPassedFlipMidpoint(false);
       setIsFlipping(false);
       setIsPlaying(shouldResumePlayback);
       if (pendingSideFlipAckRef.current && shouldResumePlayback) {
@@ -523,6 +535,7 @@ export default function App() {
     });
 
     flipTimeoutRef.current = setTimeout(() => {
+      setHasPassedFlipMidpoint(true);
       setSideIndex(nextSideIndex);
       setTrackIndex(0);
       setElapsedSeconds(0);
@@ -900,8 +913,8 @@ export default function App() {
                 <Text style={[styles.labelTitle, { color: seedTape.palette.ink }]}>{seedTape.title}</Text>
                 <Text style={[styles.labelSubtitle, { color: seedTape.palette.ink }]}>private deck preview</Text>
               </View>
-              <View style={[styles.sideBadge, { backgroundColor: activeSide.accent }]}>
-                <Text style={styles.sideBadgeText}>{activeSide.label}</Text>
+              <View style={[styles.sideBadge, { backgroundColor: flipMidpointSide.accent }]}>
+                <Text style={styles.sideBadgeText}>{flipMidpointSide.label}</Text>
               </View>
             </View>
 
@@ -961,11 +974,15 @@ export default function App() {
           </View>
           <View style={styles.metaCard}>
             <Text style={styles.metaEyebrow}>Next up</Text>
-            <Text style={styles.metaValue}>{isSideComplete ? `Ready for ${upcomingSide.label}` : nextTrack?.title ?? 'End of side'}</Text>
+            <Text style={styles.metaValue}>
+              {isSideComplete
+                ? `Ready for ${upcomingSide.label}`
+                : flipMidpointNextTrack?.title ?? 'End of side'}
+            </Text>
             <Text style={styles.metaHint}>
               {isSideComplete
                 ? 'The deck is paused at the leader. Flip the cassette to keep listening.'
-                : nextTrack?.artist ?? 'Flip the tape to keep the session going.'}
+                : flipMidpointNextTrack?.artist ?? 'Flip the tape to keep the session going.'}
             </Text>
           </View>
         </View>
