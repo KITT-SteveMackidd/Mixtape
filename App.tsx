@@ -40,9 +40,12 @@ export default function App() {
   const [progressRailWidth, setProgressRailWidth] = useState(0);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [isSideComplete, setIsSideComplete] = useState(false);
+  const [isFlipping, setIsFlipping] = useState(false);
   const shouldResumeAfterFlipRef = useRef(false);
+  const flipTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reelSpin = useRef(new Animated.Value(0)).current;
   const progressAnimation = useRef(new Animated.Value(0)).current;
+  const flipAnimation = useRef(new Animated.Value(0)).current;
 
   const activeSide = seedTape.sides[sideIndex];
   const upcomingSide = seedTape.sides[sideIndex === 0 ? 1 : 0];
@@ -62,6 +65,18 @@ export default function App() {
   const animatedProgressWidth = progressAnimation.interpolate({
     inputRange: [0, 1],
     outputRange: ['6%', '100%'],
+  });
+  const flipRotation = flipAnimation.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: ['0deg', '90deg', '180deg'],
+  });
+  const flipScale = flipAnimation.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [1, 0.92, 1],
+  });
+  const flipOverlayOpacity = flipAnimation.interpolate({
+    inputRange: [0, 0.15, 0.5, 0.85, 1],
+    outputRange: [0, 0.5, 0.85, 0.5, 0],
   });
 
   useEffect(() => {
@@ -124,7 +139,19 @@ export default function App() {
     }).start();
   }, [boundedProgressRatio, isPlaying, progressAnimation]);
 
+  useEffect(() => {
+    return () => {
+      if (flipTimeoutRef.current) {
+        clearTimeout(flipTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleTogglePlayback = () => {
+    if (isFlipping) {
+      return;
+    }
+
     if (!isPlaying && elapsedSeconds >= featuredTrackDuration) {
       setElapsedSeconds(0);
       setIsSideComplete(false);
@@ -142,6 +169,10 @@ export default function App() {
   };
 
   const handleAdvanceTrack = () => {
+    if (isFlipping) {
+      return;
+    }
+
     shouldResumeAfterFlipRef.current = false;
     setElapsedSeconds(0);
     setIsSideComplete(false);
@@ -155,6 +186,10 @@ export default function App() {
   };
 
   const handleRewindTrack = () => {
+    if (isFlipping) {
+      return;
+    }
+
     shouldResumeAfterFlipRef.current = false;
     setIsSideComplete(false);
 
@@ -174,17 +209,47 @@ export default function App() {
   };
 
   const handleFlipSide = () => {
+    if (isFlipping) {
+      return;
+    }
+
     const shouldResumePlayback = isPlaying || shouldResumeAfterFlipRef.current;
 
-    setSideIndex((currentSideIndex) => (currentSideIndex === 0 ? 1 : 0));
-    setTrackIndex(0);
-    setElapsedSeconds(0);
-    setIsSideComplete(false);
-    setIsPlaying(shouldResumePlayback);
-    shouldResumeAfterFlipRef.current = false;
+    setIsFlipping(true);
+    setIsPlaying(false);
+    flipAnimation.setValue(0);
+
+    Animated.timing(flipAnimation, {
+      toValue: 1,
+      duration: 650,
+      easing: Easing.inOut(Easing.cubic),
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (!finished) {
+        setIsFlipping(false);
+        return;
+      }
+
+      setIsFlipping(false);
+      setIsPlaying(shouldResumePlayback);
+      flipAnimation.setValue(0);
+    });
+
+    flipTimeoutRef.current = setTimeout(() => {
+      setSideIndex((currentSideIndex) => (currentSideIndex === 0 ? 1 : 0));
+      setTrackIndex(0);
+      setElapsedSeconds(0);
+      setIsSideComplete(false);
+      shouldResumeAfterFlipRef.current = false;
+      flipTimeoutRef.current = null;
+    }, 325);
   };
 
   const handleSelectTrack = (selectedTrackIndex: number) => {
+    if (isFlipping) {
+      return;
+    }
+
     shouldResumeAfterFlipRef.current = false;
     setTrackIndex(selectedTrackIndex);
     setElapsedSeconds(0);
@@ -246,7 +311,15 @@ export default function App() {
             </View>
           </View>
 
-          <View style={[styles.cassetteShell, { backgroundColor: seedTape.palette.shell }]}>
+          <Animated.View
+            style={[
+              styles.cassetteShell,
+              { backgroundColor: seedTape.palette.shell },
+              isFlipping && {
+                transform: [{ perspective: 1200 }, { rotateY: flipRotation }, { scale: flipScale }],
+              },
+            ]}
+          >
             <View style={styles.cassetteWindow}>
               <View style={styles.reelColumn}>
                 <Animated.View
@@ -315,6 +388,10 @@ export default function App() {
               </View>
             </View>
 
+            <Animated.View pointerEvents="none" style={[styles.flipOverlay, { opacity: flipOverlayOpacity }]}>
+              <Text style={styles.flipOverlayText}>Flipping to {upcomingSide.label}</Text>
+            </Animated.View>
+
             <View style={[styles.labelStrip, { backgroundColor: seedTape.palette.label }]}>
               <View>
                 <Text style={[styles.labelTitle, { color: seedTape.palette.ink }]}>{seedTape.title}</Text>
@@ -327,9 +404,11 @@ export default function App() {
 
             {isSideComplete ? (
               <Pressable
+                disabled={isFlipping}
                 onPress={handleFlipSide}
                 style={({ pressed }) => [
                   styles.sideCompleteCard,
+                  isFlipping && styles.transportButtonDisabled,
                   pressed && styles.transportButtonPressed,
                 ]}
               >
@@ -340,34 +419,38 @@ export default function App() {
             ) : null}
 
             <View style={styles.transportRow}>
-              <Pressable onPress={handleRewindTrack} style={({ pressed }) => [styles.transportButton, pressed && styles.transportButtonPressed]}>
+              <Pressable disabled={isFlipping} onPress={handleRewindTrack} style={({ pressed }) => [styles.transportButton, isFlipping && styles.transportButtonDisabled, pressed && styles.transportButtonPressed]}>
                 <Text style={styles.transportText}>rew</Text>
               </Pressable>
               <Pressable
+                disabled={isFlipping}
                 onPress={handleTogglePlayback}
                 style={({ pressed }) => [
                   styles.transportButton,
                   styles.transportPrimaryButton,
+                  isFlipping && styles.transportButtonDisabled,
                   pressed && styles.transportButtonPressed,
                 ]}
               >
                 <Text style={styles.transportText}>{isPlaying ? 'pause' : 'play'}</Text>
               </Pressable>
-              <Pressable onPress={handleAdvanceTrack} style={({ pressed }) => [styles.transportButton, pressed && styles.transportButtonPressed]}>
+              <Pressable disabled={isFlipping} onPress={handleAdvanceTrack} style={({ pressed }) => [styles.transportButton, isFlipping && styles.transportButtonDisabled, pressed && styles.transportButtonPressed]}>
                 <Text style={styles.transportText}>ff</Text>
               </Pressable>
               <Pressable
+                disabled={isFlipping}
                 onPress={handleFlipSide}
                 style={({ pressed }) => [
                   styles.transportButton,
                   isSideComplete && styles.transportFlipButtonReady,
+                  isFlipping && styles.transportButtonDisabled,
                   pressed && styles.transportButtonPressed,
                 ]}
               >
-                <Text style={styles.transportText}>{isSideComplete ? `flip ${upcomingSide.label.toLowerCase()}` : 'flip'}</Text>
+                <Text style={styles.transportText}>{isFlipping ? 'flipping…' : isSideComplete ? `flip ${upcomingSide.label.toLowerCase()}` : 'flip'}</Text>
               </Pressable>
             </View>
-          </View>
+          </Animated.View>
         </View>
 
         <View style={styles.metaGrid}>
@@ -375,7 +458,11 @@ export default function App() {
             <Text style={styles.metaEyebrow}>Current vibe</Text>
             <Text style={styles.metaValue}>{featuredTrack.mood}</Text>
             <Text style={styles.metaHint}>
-              {isPlaying ? 'Deck is rolling through the current cut.' : 'Playback is paused and ready to resume.'}
+              {isFlipping
+                ? `The deck is turning over to ${upcomingSide.label.toLowerCase()}.`
+                : isPlaying
+                  ? 'Deck is rolling through the current cut.'
+                  : 'Playback is paused and ready to resume.'}
             </Text>
           </View>
           <View style={styles.metaCard}>
@@ -502,6 +589,27 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     padding: 16,
     gap: 14,
+  },
+  flipOverlay: {
+    position: 'absolute',
+    top: 18,
+    right: 18,
+    left: 18,
+    zIndex: 2,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(18, 15, 20, 0.78)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 209, 102, 0.28)',
+    alignItems: 'center',
+  },
+  flipOverlayText: {
+    color: '#fff7ea',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1.4,
   },
   cassetteWindow: {
     backgroundColor: '#3c3226',
@@ -699,6 +807,9 @@ const styles = StyleSheet.create({
   transportFlipButtonReady: {
     backgroundColor: 'rgba(129, 230, 161, 0.18)',
     borderColor: 'rgba(129, 230, 161, 0.5)',
+  },
+  transportButtonDisabled: {
+    opacity: 0.58,
   },
   transportButtonPressed: {
     opacity: 0.82,
