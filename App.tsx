@@ -165,6 +165,8 @@ export default function App() {
     tape: seedTape,
     sideIndex,
     trackIndex,
+    isFlipping,
+    pendingFlipSideIndex,
   });
   const featuredTrack = activeSide.tracks[trackIndex];
   const flipMidpointNextTrack = flipMidpointSide.tracks[trackIndex + 1] ?? null;
