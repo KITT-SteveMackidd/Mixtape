@@ -102,6 +102,7 @@ export default function App() {
   const reelSettleAnimation = useRef(new Animated.Value(0)).current;
   const elapsedPulseAnimation = useRef(new Animated.Value(0)).current;
   const seekFlashAnimation = useRef(new Animated.Value(0)).current;
+  const bridgeShimmerAnimation = useRef(new Animated.Value(0)).current;
   const flipAnimation = useRef(new Animated.Value(0)).current;
   const tensionAnimation = useRef(new Animated.Value(0)).current;
   const headSettleX = useRef(new Animated.Value(0)).current;
@@ -203,6 +204,14 @@ export default function App() {
   const seekFlashTranslateX = seekFlashAnimation.interpolate({
     inputRange: [0, 1],
     outputRange: [-24, 20],
+  });
+  const bridgeShimmerOpacity = bridgeShimmerAnimation.interpolate({
+    inputRange: [0, 0.18, 0.72, 1],
+    outputRange: [0, 0.12, 0.07, 0],
+  });
+  const bridgeShimmerTranslateX = bridgeShimmerAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: scrubDirectionRef.current === 'forward' ? [-18, 22] : [18, -22],
   });
 
   useEffect(() => {
@@ -536,6 +545,25 @@ export default function App() {
     ]).start();
   };
 
+  const animateBridgeShimmer = () => {
+    bridgeShimmerAnimation.stopAnimation();
+    bridgeShimmerAnimation.setValue(0);
+    Animated.sequence([
+      Animated.timing(bridgeShimmerAnimation, {
+        toValue: 1,
+        duration: 210,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(bridgeShimmerAnimation, {
+        toValue: 0,
+        duration: 140,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
   const animateReelSettle = () => {
     reelSettleAnimation.stopAnimation();
     reelSettleAnimation.setValue(0);
@@ -575,6 +603,7 @@ export default function App() {
     animateReelSettle();
     animateElapsedPulse();
     animateSeekFlash();
+    animateBridgeShimmer();
   };
 
   return (
@@ -639,6 +668,16 @@ export default function App() {
                   { transform: [{ translateX: tapeBridgeTensionShift }, { translateX: headSettleTranslateX }, { translateY: headSettleTranslateY }] },
                 ]}
               >
+                <Animated.View
+                  pointerEvents="none"
+                  style={[
+                    styles.tapeBridgeShimmer,
+                    {
+                      opacity: bridgeShimmerOpacity,
+                      transform: [{ translateX: bridgeShimmerTranslateX }],
+                    },
+                  ]}
+                />
                 <Animated.View style={[styles.tapeLine, { opacity: tapeLineTensionOpacity, transform: [{ scaleX: tapeLineTensionScale }] }]} />
                 <Text style={styles.nowPlayingLabel}>{featuredTrack.title}</Text>
                 <Text style={styles.nowPlayingMeta}>
@@ -978,6 +1017,15 @@ const styles = StyleSheet.create({
     borderColor: '#574735',
     padding: 14,
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  tapeBridgeShimmer: {
+    position: 'absolute',
+    top: 18,
+    bottom: 18,
+    width: 34,
+    borderRadius: 12,
+    backgroundColor: '#fff4d6',
   },
   tapeLine: {
     position: 'absolute',
