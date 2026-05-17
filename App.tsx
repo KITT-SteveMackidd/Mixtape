@@ -20,6 +20,7 @@ import {
 import { getFlipCompletionSideIndex } from './src/utils/flipCompletion';
 import { getFlipCopySideIndex } from './src/utils/flipCopy';
 import { getFlipMidpointSideIndex } from './src/utils/flipMidpoint';
+import { getNowPlayingBodyCopy } from './src/utils/nowPlayingBodyCopy';
 import { getQueuePanelProps } from './src/utils/queuePanel';
 
 const TICK_MS = 1000;
@@ -159,6 +160,11 @@ export default function App() {
     trackIndex,
     isFlipping,
     pendingFlipSideIndex,
+  });
+  const nowPlayingBodyCopy = getNowPlayingBodyCopy({
+    tape: seedTape,
+    sideIndex,
+    trackIndex,
   });
   const featuredTrack = activeSide.tracks[trackIndex];
   const flipMidpointNextTrack = flipMidpointSide.tracks[trackIndex + 1] ?? null;
@@ -844,10 +850,8 @@ export default function App() {
                   ]}
                 />
                 <Animated.View style={[styles.tapeLine, { opacity: tapeLineTensionOpacity, transform: [{ scaleX: tapeLineTensionScale }] }]} />
-                <Text style={styles.nowPlayingLabel}>{featuredTrack.title}</Text>
-                <Text style={styles.nowPlayingMeta}>
-                  {featuredTrack.artist} • {featuredTrack.duration}
-                </Text>
+                <Text style={styles.nowPlayingLabel}>{nowPlayingBodyCopy.title}</Text>
+                <Text style={styles.nowPlayingMeta}>{nowPlayingBodyCopy.meta}</Text>
                 <Text style={styles.progressText}>
                   <Animated.Text style={[styles.progressElapsedText, { transform: [{ scale: elapsedPulseScale }] }]}>
                     {formatProgress(elapsedSeconds)}
