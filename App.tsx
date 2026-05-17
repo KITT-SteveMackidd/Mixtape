@@ -115,8 +115,7 @@ export default function App() {
   const previousTrackRef = useRef({ sideIndex: 0, trackIndex: 0 });
   const pendingAutoAdvanceAckRef = useRef(false);
   const pendingSideFlipAckRef = useRef(false);
-  const pendingManualFlipResumeAckRef = useRef(false);
-  const pendingTransportResumeAckRef = useRef<'backward' | 'forward' | null>(null);
+  const pausedBoundaryResumeAckRef = useRef<'backward' | 'forward' | null>(null);
   const scrubRatioRef = useRef(0);
   const scrubDirectionRef = useRef<'backward' | 'forward'>('forward');
 
@@ -371,29 +370,42 @@ export default function App() {
     ]).start();
   };
 
+  const isPausedAtTrackBoundary = !isPlaying && (elapsedSeconds === 0 || elapsedSeconds >= featuredTrackDuration);
+
+  const primePausedBoundaryResumeAck = (direction: 'backward' | 'forward' | null) => {
+    pausedBoundaryResumeAckRef.current = direction;
+  };
+
+  const clearPausedBoundaryResumeAck = () => {
+    primePausedBoundaryResumeAck(null);
+  };
+
+  const consumePausedBoundaryResumeAck = () => {
+    const shouldTriggerResumeAck =
+      isPausedAtTrackBoundary && pausedBoundaryResumeAckRef.current && (trackIndex !== 0 || elapsedSeconds === 0)
+        ? pausedBoundaryResumeAckRef.current
+        : null;
+
+    clearPausedBoundaryResumeAck();
+
+    if (shouldTriggerResumeAck) {
+      triggerQueueSeekAcknowledgement(shouldTriggerResumeAck);
+    }
+  };
+
   const handleTogglePlayback = () => {
     if (isFlipping) {
       return;
     }
-
-    const isPausedAtTrackBoundary = !isPlaying && (elapsedSeconds === 0 || elapsedSeconds >= featuredTrackDuration);
-    const shouldTriggerManualFlipResumeAck =
-      !isPlaying && pendingManualFlipResumeAckRef.current && trackIndex === 0 && elapsedSeconds === 0;
-    const shouldTriggerTransportResumeAck = isPausedAtTrackBoundary ? pendingTransportResumeAckRef.current : null;
 
     if (!isPlaying && elapsedSeconds >= featuredTrackDuration) {
       setElapsedSeconds(0);
       setIsSideComplete(false);
     }
 
-    if (shouldTriggerManualFlipResumeAck) {
-      triggerQueueSeekAcknowledgement('forward');
-      pendingManualFlipResumeAckRef.current = false;
-    } else if (shouldTriggerTransportResumeAck) {
-      triggerQueueSeekAcknowledgement(shouldTriggerTransportResumeAck);
+    if (!isPlaying) {
+      consumePausedBoundaryResumeAck();
     }
-
-    pendingTransportResumeAckRef.current = null;
 
     setIsPlaying((currentState) => {
       const nextState = !currentState;
@@ -411,9 +423,9 @@ export default function App() {
       return;
     }
 
-    pendingManualFlipResumeAckRef.current = false;
+    clearPausedBoundaryResumeAck();
     shouldResumeAfterFlipRef.current = false;
-    pendingTransportResumeAckRef.current = !isPlaying ? 'forward' : null;
+    primePausedBoundaryResumeAck(!isPlaying ? 'forward' : null);
     setElapsedSeconds(0);
     setIsSideComplete(false);
     triggerButtonSeekAcknowledgement('forward');
@@ -431,9 +443,9 @@ export default function App() {
       return;
     }
 
-    pendingManualFlipResumeAckRef.current = false;
+    clearPausedBoundaryResumeAck();
     shouldResumeAfterFlipRef.current = false;
-    pendingTransportResumeAckRef.current = !isPlaying ? 'backward' : null;
+    primePausedBoundaryResumeAck(!isPlaying ? 'backward' : null);
     setIsSideComplete(false);
 
     if (elapsedSeconds > 3) {
@@ -460,11 +472,9 @@ export default function App() {
 
     const shouldResumePlayback = isPlaying || shouldResumeAfterFlipRef.current;
     const shouldTriggerSideFlipAck = shouldResumeAfterFlipRef.current;
-    const shouldPrimeManualFlipResumeAck = !shouldResumePlayback;
 
     pendingSideFlipAckRef.current = shouldTriggerSideFlipAck;
-    pendingManualFlipResumeAckRef.current = shouldPrimeManualFlipResumeAck;
-    pendingTransportResumeAckRef.current = null;
+    primePausedBoundaryResumeAck(!shouldResumePlayback ? 'forward' : null);
     setIsFlipping(true);
     setIsPlaying(false);
     flipAnimation.setValue(0);
@@ -477,7 +487,7 @@ export default function App() {
     }).start(({ finished }) => {
       if (!finished) {
         pendingSideFlipAckRef.current = false;
-        pendingManualFlipResumeAckRef.current = false;
+        clearPausedBoundaryResumeAck();
         setIsFlipping(false);
         return;
       }
@@ -508,9 +518,9 @@ export default function App() {
 
     const direction = selectedTrackIndex >= trackIndex ? 'forward' : 'backward';
 
-    pendingManualFlipResumeAckRef.current = false;
+    clearPausedBoundaryResumeAck();
     shouldResumeAfterFlipRef.current = false;
-    pendingTransportResumeAckRef.current = !isPlaying ? direction : null;
+    primePausedBoundaryResumeAck(!isPlaying ? direction : null);
     triggerQueueSeekAcknowledgement(direction);
     setTrackIndex(selectedTrackIndex);
     setElapsedSeconds(0);
@@ -682,8 +692,7 @@ export default function App() {
   };
 
   const handleScrubGrant = (event: GestureResponderEvent) => {
-    pendingManualFlipResumeAckRef.current = false;
-    pendingTransportResumeAckRef.current = null;
+    clearPausedBoundaryResumeAck();
     setIsScrubbing(true);
     scrubSettleAnimation.stopAnimation();
     scrubSettleAnimation.setValue(0);
@@ -698,10 +707,11 @@ export default function App() {
 
   const handleScrubRelease = () => {
     setIsScrubbing(false);
-    pendingTransportResumeAckRef.current =
+    primePausedBoundaryResumeAck(
       !isPlaying && (elapsedSeconds === 0 || elapsedSeconds >= featuredTrackDuration)
         ? scrubDirectionRef.current
-        : null;
+        : null,
+    );
     animateScrubGrab(0, 180);
     animateScrubSettle();
     animateReelSettle();
