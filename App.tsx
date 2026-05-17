@@ -1,6 +1,17 @@
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Animated,
+  Easing,
+  GestureResponderEvent,
+  LayoutChangeEvent,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { seedTape } from './src/data/seedTape';
 
 const TICK_MS = 1000;
@@ -26,6 +37,8 @@ export default function App() {
   const [trackIndex, setTrackIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [progressRailWidth, setProgressRailWidth] = useState(0);
+  const [isScrubbing, setIsScrubbing] = useState(false);
   const reelSpin = useRef(new Animated.Value(0)).current;
   const progressAnimation = useRef(new Animated.Value(0)).current;
 
@@ -34,6 +47,7 @@ export default function App() {
   const nextTrack = activeSide.tracks[trackIndex + 1] ?? null;
   const featuredTrackDuration = useMemo(() => parseDuration(featuredTrack.duration), [featuredTrack.duration]);
   const progressRatio = elapsedSeconds / featuredTrackDuration;
+  const boundedProgressRatio = Math.min(1, Math.max(0, progressRatio || 0));
   const reelRotation = reelSpin.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
@@ -98,12 +112,12 @@ export default function App() {
 
   useEffect(() => {
     Animated.timing(progressAnimation, {
-      toValue: Math.min(1, Math.max(0, progressRatio || 0)),
+      toValue: boundedProgressRatio,
       duration: isPlaying ? 450 : 220,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     }).start();
-  }, [isPlaying, progressAnimation, progressRatio]);
+  }, [boundedProgressRatio, isPlaying, progressAnimation]);
 
   const handleTogglePlayback = () => {
     if (!isPlaying && elapsedSeconds >= featuredTrackDuration) {
@@ -151,6 +165,34 @@ export default function App() {
     setElapsedSeconds(0);
   };
 
+  const updateScrubPosition = (locationX: number) => {
+    if (progressRailWidth <= 0) {
+      return;
+    }
+
+    const nextRatio = Math.min(1, Math.max(0, locationX / progressRailWidth));
+    const nextElapsed = Math.round(nextRatio * featuredTrackDuration);
+
+    setElapsedSeconds(Math.min(featuredTrackDuration, Math.max(0, nextElapsed)));
+  };
+
+  const handleProgressRailLayout = (event: LayoutChangeEvent) => {
+    setProgressRailWidth(event.nativeEvent.layout.width);
+  };
+
+  const handleScrubGrant = (event: GestureResponderEvent) => {
+    setIsScrubbing(true);
+    updateScrubPosition(event.nativeEvent.locationX);
+  };
+
+  const handleScrubMove = (event: GestureResponderEvent) => {
+    updateScrubPosition(event.nativeEvent.locationX);
+  };
+
+  const handleScrubRelease = () => {
+    setIsScrubbing(false);
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
@@ -195,12 +237,33 @@ export default function App() {
                 <Text style={styles.progressText}>
                   {formatProgress(elapsedSeconds)} / {featuredTrack.duration}
                 </Text>
-                <View style={styles.progressRail}>
-                  <Animated.View
+                <View
+                  style={styles.progressRailTouchTarget}
+                  onLayout={handleProgressRailLayout}
+                  onMoveShouldSetResponder={() => true}
+                  onResponderGrant={handleScrubGrant}
+                  onResponderMove={handleScrubMove}
+                  onResponderRelease={handleScrubRelease}
+                  onResponderTerminate={handleScrubRelease}
+                  onStartShouldSetResponder={() => true}
+                >
+                  <View style={styles.progressRail}>
+                    <Animated.View
+                      style={[
+                        styles.progressFill,
+                        isPlaying && styles.progressFillPlaying,
+                        { width: animatedProgressWidth },
+                      ]}
+                    />
+                  </View>
+                  <View
+                    pointerEvents="none"
                     style={[
-                      styles.progressFill,
-                      isPlaying && styles.progressFillPlaying,
-                      { width: animatedProgressWidth },
+                      styles.progressThumb,
+                      isScrubbing && styles.progressThumbActive,
+                      {
+                        left: `${boundedProgressRatio * 100}%`,
+                      },
                     ]}
                   />
                 </View>
@@ -455,6 +518,10 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 8,
   },
+  progressRailTouchTarget: {
+    justifyContent: 'center',
+    paddingVertical: 8,
+  },
   progressRail: {
     height: 8,
     borderRadius: 999,
@@ -470,6 +537,28 @@ const styles = StyleSheet.create({
     shadowColor: '#ff7a59',
     shadowOpacity: 0.28,
     shadowRadius: 8,
+  },
+  progressThumb: {
+    position: 'absolute',
+    top: '50%',
+    width: 14,
+    height: 14,
+    borderRadius: 999,
+    marginLeft: -7,
+    marginTop: -7,
+    backgroundColor: '#fff7ea',
+    borderWidth: 2,
+    borderColor: '#ff7a59',
+    shadowColor: '#120f14',
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+  },
+  progressThumbActive: {
+    transform: [{ scale: 1.08 }],
   },
   labelStrip: {
     borderRadius: 18,
