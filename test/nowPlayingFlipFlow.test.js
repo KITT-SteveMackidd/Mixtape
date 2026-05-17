@@ -15,6 +15,10 @@ function expectTextPresent(root, value) {
   expect(root.findAll((node) => node.type === Text && getTextContent(node) === value).length).toBeGreaterThan(0);
 }
 
+function expectTextAbsent(root, value) {
+  expect(root.findAll((node) => node.type === Text && getTextContent(node) === value)).toHaveLength(0);
+}
+
 function findPressableByText(root, value) {
   return root.find(
     (node) =>
@@ -129,6 +133,7 @@ describe('App now playing flip flow', () => {
     expectTextPresent(root, 'side b');
     expectTextPresent(root, 'Side B queue');
     expectTextPresent(root, 'Parking Lot Stars');
+    expectTextAbsent(root, 'Side A queue');
 
     act(() => {
       jest.advanceTimersByTime(325);
