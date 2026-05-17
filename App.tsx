@@ -20,7 +20,7 @@ import {
 import { getFlipCompletionSideIndex } from './src/utils/flipCompletion';
 import { getFlipCopySideIndex } from './src/utils/flipCopy';
 import { getFlipMidpointSideIndex } from './src/utils/flipMidpoint';
-import { getQueueListRows } from './src/utils/queueListBody';
+import { getQueuePanelProps } from './src/utils/queuePanel';
 
 const TICK_MS = 1000;
 
@@ -153,6 +153,13 @@ export default function App() {
       pendingFlipSideIndex,
     })
   ];
+  const queuePanel = getQueuePanelProps({
+    tape: seedTape,
+    sideIndex,
+    trackIndex,
+    isFlipping,
+    pendingFlipSideIndex,
+  });
   const featuredTrack = activeSide.tracks[trackIndex];
   const flipMidpointNextTrack = flipMidpointSide.tracks[trackIndex + 1] ?? null;
   const featuredTrackDuration = useMemo(() => parseDuration(featuredTrack.duration), [featuredTrack.duration]);
@@ -997,8 +1004,8 @@ export default function App() {
         </View>
 
         <View style={styles.listCard}>
-          <Text style={styles.listEyebrow}>{flipCompletionSide.label} queue</Text>
-          {getQueueListRows(activeSide.tracks, trackIndex).map((track, index) => (
+          <Text style={styles.listEyebrow}>{queuePanel.eyebrow}</Text>
+          {queuePanel.rows.map((track, index) => (
             <Pressable
               key={track.id}
               onPress={() => handleSelectTrack(index)}
