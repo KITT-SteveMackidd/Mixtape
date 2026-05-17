@@ -13,6 +13,10 @@ import {
   View,
 } from 'react-native';
 import { seedTape } from './src/data/seedTape';
+import {
+  consumePausedBoundaryResumeAck as resolvePausedBoundaryResumeAck,
+  getPausedBoundaryResumeAckForInactivePlayback,
+} from './src/utils/pausedBoundaryResume';
 
 const TICK_MS = 1000;
 
@@ -381,10 +385,12 @@ export default function App() {
   };
 
   const consumePausedBoundaryResumeAck = () => {
-    const shouldTriggerResumeAck =
-      isPausedAtTrackBoundary && pausedBoundaryResumeAckRef.current && (trackIndex !== 0 || elapsedSeconds === 0)
-        ? pausedBoundaryResumeAckRef.current
-        : null;
+    const shouldTriggerResumeAck = resolvePausedBoundaryResumeAck({
+      isPausedAtTrackBoundary,
+      queuedDirection: pausedBoundaryResumeAckRef.current,
+      trackIndex,
+      elapsedSeconds,
+    });
 
     clearPausedBoundaryResumeAck();
 
@@ -425,7 +431,7 @@ export default function App() {
 
     clearPausedBoundaryResumeAck();
     shouldResumeAfterFlipRef.current = false;
-    primePausedBoundaryResumeAck(!isPlaying ? 'forward' : null);
+    primePausedBoundaryResumeAck(getPausedBoundaryResumeAckForInactivePlayback({ isPlaying, direction: 'forward' }));
     setElapsedSeconds(0);
     setIsSideComplete(false);
     triggerButtonSeekAcknowledgement('forward');
@@ -445,7 +451,7 @@ export default function App() {
 
     clearPausedBoundaryResumeAck();
     shouldResumeAfterFlipRef.current = false;
-    primePausedBoundaryResumeAck(!isPlaying ? 'backward' : null);
+    primePausedBoundaryResumeAck(getPausedBoundaryResumeAckForInactivePlayback({ isPlaying, direction: 'backward' }));
     setIsSideComplete(false);
 
     if (elapsedSeconds > 3) {
@@ -474,7 +480,9 @@ export default function App() {
     const shouldTriggerSideFlipAck = shouldResumeAfterFlipRef.current;
 
     pendingSideFlipAckRef.current = shouldTriggerSideFlipAck;
-    primePausedBoundaryResumeAck(!shouldResumePlayback ? 'forward' : null);
+    primePausedBoundaryResumeAck(
+      getPausedBoundaryResumeAckForInactivePlayback({ isPlaying: shouldResumePlayback, direction: 'forward' }),
+    );
     setIsFlipping(true);
     setIsPlaying(false);
     flipAnimation.setValue(0);
@@ -520,7 +528,7 @@ export default function App() {
 
     clearPausedBoundaryResumeAck();
     shouldResumeAfterFlipRef.current = false;
-    primePausedBoundaryResumeAck(!isPlaying ? direction : null);
+    primePausedBoundaryResumeAck(getPausedBoundaryResumeAckForInactivePlayback({ isPlaying, direction }));
     triggerQueueSeekAcknowledgement(direction);
     setTrackIndex(selectedTrackIndex);
     setElapsedSeconds(0);
@@ -708,9 +716,10 @@ export default function App() {
   const handleScrubRelease = () => {
     setIsScrubbing(false);
     primePausedBoundaryResumeAck(
-      !isPlaying && (elapsedSeconds === 0 || elapsedSeconds >= featuredTrackDuration)
-        ? scrubDirectionRef.current
-        : null,
+      getPausedBoundaryResumeAckForInactivePlayback({
+        isPlaying: isPlaying || !(elapsedSeconds === 0 || elapsedSeconds >= featuredTrackDuration),
+        direction: scrubDirectionRef.current,
+      }),
     );
     animateScrubGrab(0, 180);
     animateScrubSettle();
