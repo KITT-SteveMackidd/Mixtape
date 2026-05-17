@@ -98,6 +98,7 @@ export default function App() {
   const reelSpin = useRef(new Animated.Value(0)).current;
   const progressAnimation = useRef(new Animated.Value(0)).current;
   const scrubGrabAnimation = useRef(new Animated.Value(0)).current;
+  const scrubSettleAnimation = useRef(new Animated.Value(0)).current;
   const elapsedPulseAnimation = useRef(new Animated.Value(0)).current;
   const seekFlashAnimation = useRef(new Animated.Value(0)).current;
   const flipAnimation = useRef(new Animated.Value(0)).current;
@@ -106,6 +107,8 @@ export default function App() {
   const headSettleY = useRef(new Animated.Value(0)).current;
   const hasMountedRef = useRef(false);
   const previousTrackRef = useRef({ sideIndex: 0, trackIndex: 0 });
+  const scrubRatioRef = useRef(0);
+  const scrubDirectionRef = useRef<'backward' | 'forward'>('forward');
 
   const activeSide = seedTape.sides[sideIndex];
   const upcomingSide = seedTape.sides[sideIndex === 0 ? 1 : 0];
@@ -167,6 +170,10 @@ export default function App() {
   const scrubThumbTranslateY = scrubGrabAnimation.interpolate({
     inputRange: [0, 1],
     outputRange: [0, 1],
+  });
+  const scrubThumbSettleX = scrubSettleAnimation.interpolate({
+    inputRange: [-1, -0.42, 0, 0.42, 1],
+    outputRange: [0, -2.5, 0, 2.5, 0],
   });
   const elapsedPulseScale = elapsedPulseAnimation.interpolate({
     inputRange: [0, 1],
@@ -432,7 +439,13 @@ export default function App() {
 
     const nextRatio = Math.min(1, Math.max(0, locationX / progressRailWidth));
     const nextElapsed = Math.round(nextRatio * featuredTrackDuration);
+    const previousRatio = scrubRatioRef.current;
 
+    if (Math.abs(nextRatio - previousRatio) > 0.003) {
+      scrubDirectionRef.current = nextRatio >= previousRatio ? 'forward' : 'backward';
+    }
+
+    scrubRatioRef.current = nextRatio;
     setElapsedSeconds(Math.min(featuredTrackDuration, Math.max(0, nextElapsed)));
   };
 
@@ -468,6 +481,25 @@ export default function App() {
     ]).start();
   };
 
+  const animateScrubSettle = () => {
+    scrubSettleAnimation.stopAnimation();
+    scrubSettleAnimation.setValue(0);
+    Animated.sequence([
+      Animated.timing(scrubSettleAnimation, {
+        toValue: scrubDirectionRef.current === 'forward' ? 1 : -1,
+        duration: 90,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(scrubSettleAnimation, {
+        toValue: 0,
+        duration: 150,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
   const animateSeekFlash = () => {
     seekFlashAnimation.stopAnimation();
     seekFlashAnimation.setValue(0);
@@ -489,6 +521,9 @@ export default function App() {
 
   const handleScrubGrant = (event: GestureResponderEvent) => {
     setIsScrubbing(true);
+    scrubSettleAnimation.stopAnimation();
+    scrubSettleAnimation.setValue(0);
+    scrubRatioRef.current = boundedProgressRatio;
     animateScrubGrab(1, 80);
     updateScrubPosition(event.nativeEvent.locationX);
   };
@@ -500,6 +535,7 @@ export default function App() {
   const handleScrubRelease = () => {
     setIsScrubbing(false);
     animateScrubGrab(0, 180);
+    animateScrubSettle();
     animateElapsedPulse();
     animateSeekFlash();
   };
@@ -608,7 +644,7 @@ export default function App() {
                       isScrubbing && styles.progressThumbActive,
                       {
                         left: `${boundedProgressRatio * 100}%`,
-                        transform: [{ translateY: scrubThumbTranslateY }, { scale: scrubThumbScale }],
+                        transform: [{ translateX: scrubThumbSettleX }, { translateY: scrubThumbTranslateY }, { scale: scrubThumbScale }],
                       },
                     ]}
                   />
