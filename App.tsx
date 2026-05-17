@@ -38,9 +38,10 @@ type TransportButtonProps = {
   disabled?: boolean;
   variant?: 'default' | 'primary' | 'flip-ready';
   onPressIn?: () => void;
+  ledOpacity?: Animated.AnimatedInterpolation<number> | Animated.Value;
 };
 
-function TransportButton({ label, onPress, disabled = false, variant = 'default', onPressIn }: TransportButtonProps) {
+function TransportButton({ label, onPress, disabled = false, variant = 'default', onPressIn, ledOpacity }: TransportButtonProps) {
   const pressAnimation = useRef(new Animated.Value(0)).current;
 
   const scale = pressAnimation.interpolate({
@@ -78,6 +79,7 @@ function TransportButton({ label, onPress, disabled = false, variant = 'default'
           disabled && styles.transportButtonDisabled,
         ]}
       >
+        {ledOpacity ? <Animated.View pointerEvents="none" style={[styles.transportButtonLed, { opacity: ledOpacity }]} /> : null}
         <Text style={styles.transportText}>{label}</Text>
       </Pressable>
     </Animated.View>
@@ -103,6 +105,8 @@ export default function App() {
   const elapsedPulseAnimation = useRef(new Animated.Value(0)).current;
   const seekFlashAnimation = useRef(new Animated.Value(0)).current;
   const bridgeShimmerAnimation = useRef(new Animated.Value(0)).current;
+  const rewindLedAnimation = useRef(new Animated.Value(0)).current;
+  const advanceLedAnimation = useRef(new Animated.Value(0)).current;
   const flipAnimation = useRef(new Animated.Value(0)).current;
   const tensionAnimation = useRef(new Animated.Value(0)).current;
   const headSettleX = useRef(new Animated.Value(0)).current;
@@ -212,6 +216,14 @@ export default function App() {
   const bridgeShimmerTranslateX = bridgeShimmerAnimation.interpolate({
     inputRange: [0, 1],
     outputRange: scrubDirectionRef.current === 'forward' ? [-18, 22] : [18, -22],
+  });
+  const rewindLedOpacity = rewindLedAnimation.interpolate({
+    inputRange: [0, 0.14, 0.48, 1],
+    outputRange: [0.18, 1, 0.34, 0.12],
+  });
+  const advanceLedOpacity = advanceLedAnimation.interpolate({
+    inputRange: [0, 0.14, 0.48, 1],
+    outputRange: [0.18, 1, 0.34, 0.12],
   });
 
   useEffect(() => {
@@ -378,6 +390,7 @@ export default function App() {
     shouldResumeAfterFlipRef.current = false;
     setElapsedSeconds(0);
     setIsSideComplete(false);
+    triggerButtonSeekAcknowledgement('forward');
     setTrackIndex((currentTrackIndex) => {
       if (currentTrackIndex === activeSide.tracks.length - 1) {
         return 0;
@@ -397,10 +410,12 @@ export default function App() {
 
     if (elapsedSeconds > 3) {
       setElapsedSeconds(0);
+      triggerButtonSeekAcknowledgement('backward');
       return;
     }
 
     setElapsedSeconds(0);
+    triggerButtonSeekAcknowledgement('backward');
     setTrackIndex((currentTrackIndex) => {
       if (currentTrackIndex === 0) {
         return activeSide.tracks.length - 1;
@@ -581,6 +596,36 @@ export default function App() {
         useNativeDriver: true,
       }),
     ]).start();
+  };
+
+  const animateTransportLed = (direction: 'backward' | 'forward') => {
+    const targetAnimation = direction === 'forward' ? advanceLedAnimation : rewindLedAnimation;
+
+    targetAnimation.stopAnimation();
+    targetAnimation.setValue(0);
+    Animated.sequence([
+      Animated.timing(targetAnimation, {
+        toValue: 1,
+        duration: 120,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(targetAnimation, {
+        toValue: 0,
+        duration: 210,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const triggerButtonSeekAcknowledgement = (direction: 'backward' | 'forward') => {
+    scrubDirectionRef.current = direction;
+    animateTransportLed(direction);
+    animateReelSettle();
+    animateElapsedPulse();
+    animateSeekFlash();
+    animateBridgeShimmer();
   };
 
   const handleScrubGrant = (event: GestureResponderEvent) => {
@@ -789,6 +834,7 @@ export default function App() {
               <TransportButton
                 disabled={isFlipping}
                 label="rew"
+                ledOpacity={rewindLedOpacity}
                 onPress={handleRewindTrack}
                 onPressIn={() => triggerHeadSettle('backward')}
               />
@@ -796,6 +842,7 @@ export default function App() {
               <TransportButton
                 disabled={isFlipping}
                 label="ff"
+                ledOpacity={advanceLedOpacity}
                 onPress={handleAdvanceTrack}
                 onPressIn={() => triggerHeadSettle('forward')}
               />
@@ -1178,6 +1225,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#5f5140',
+    overflow: 'hidden',
   },
   transportPrimaryButton: {
     backgroundColor: '#3d291f',
@@ -1193,6 +1241,19 @@ const styles = StyleSheet.create({
   transportButtonPressed: {
     opacity: 0.82,
     transform: [{ scale: 0.98 }],
+  },
+  transportButtonLed: {
+    position: 'absolute',
+    top: 7,
+    right: 8,
+    width: 5,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: '#ffb36b',
+    shadowColor: '#ffb36b',
+    shadowOpacity: 0.55,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 0 },
   },
   transportText: {
     color: '#f8edd5',
