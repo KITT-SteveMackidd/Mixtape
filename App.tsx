@@ -467,7 +467,10 @@ export default function App() {
       return;
     }
 
+    const direction = selectedTrackIndex >= trackIndex ? 'forward' : 'backward';
+
     shouldResumeAfterFlipRef.current = false;
+    triggerQueueSeekAcknowledgement(direction);
     setTrackIndex(selectedTrackIndex);
     setElapsedSeconds(0);
     setIsSideComplete(false);
@@ -622,6 +625,15 @@ export default function App() {
   const triggerButtonSeekAcknowledgement = (direction: 'backward' | 'forward') => {
     scrubDirectionRef.current = direction;
     animateTransportLed(direction);
+    animateReelSettle();
+    animateElapsedPulse();
+    animateSeekFlash();
+    animateBridgeShimmer();
+  };
+
+  const triggerQueueSeekAcknowledgement = (direction: 'backward' | 'forward') => {
+    scrubDirectionRef.current = direction;
+    animateScrubSettle();
     animateReelSettle();
     animateElapsedPulse();
     animateSeekFlash();
