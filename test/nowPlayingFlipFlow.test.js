@@ -132,6 +132,7 @@ describe('App now playing flip flow', () => {
     expectTextPresent(root, 'Headlights Low');
     expectTextPresent(root, 'Mara Vale • 03:47');
     expectTextPresent(root, 'flipping side a…');
+    expectTextAbsent(root, 'flipping side b…');
     expectTextPresent(root, 'side b');
     expectTextPresent(root, 'Side B queue');
     expectTextPresent(root, 'Parking Lot Stars');
