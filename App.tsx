@@ -99,6 +99,7 @@ export default function App() {
   const progressAnimation = useRef(new Animated.Value(0)).current;
   const scrubGrabAnimation = useRef(new Animated.Value(0)).current;
   const elapsedPulseAnimation = useRef(new Animated.Value(0)).current;
+  const seekFlashAnimation = useRef(new Animated.Value(0)).current;
   const flipAnimation = useRef(new Animated.Value(0)).current;
   const tensionAnimation = useRef(new Animated.Value(0)).current;
   const headSettleX = useRef(new Animated.Value(0)).current;
@@ -170,6 +171,14 @@ export default function App() {
   const elapsedPulseScale = elapsedPulseAnimation.interpolate({
     inputRange: [0, 1],
     outputRange: [1, 1.05],
+  });
+  const seekFlashOpacity = seekFlashAnimation.interpolate({
+    inputRange: [0, 0.2, 0.7, 1],
+    outputRange: [0, 0.14, 0.08, 0],
+  });
+  const seekFlashTranslateX = seekFlashAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-24, 20],
   });
 
   useEffect(() => {
@@ -459,6 +468,25 @@ export default function App() {
     ]).start();
   };
 
+  const animateSeekFlash = () => {
+    seekFlashAnimation.stopAnimation();
+    seekFlashAnimation.setValue(0);
+    Animated.sequence([
+      Animated.timing(seekFlashAnimation, {
+        toValue: 1,
+        duration: 220,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(seekFlashAnimation, {
+        toValue: 0,
+        duration: 120,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
   const handleScrubGrant = (event: GestureResponderEvent) => {
     setIsScrubbing(true);
     animateScrubGrab(1, 80);
@@ -473,6 +501,7 @@ export default function App() {
     setIsScrubbing(false);
     animateScrubGrab(0, 180);
     animateElapsedPulse();
+    animateSeekFlash();
   };
 
   return (
@@ -559,7 +588,18 @@ export default function App() {
                         isPlaying && styles.progressFillPlaying,
                         { width: animatedProgressWidth },
                       ]}
-                    />
+                    >
+                      <Animated.View
+                        pointerEvents="none"
+                        style={[
+                          styles.progressFillFlash,
+                          {
+                            opacity: seekFlashOpacity,
+                            transform: [{ translateX: seekFlashTranslateX }],
+                          },
+                        ]}
+                      />
+                    </Animated.View>
                   </View>
                   <Animated.View
                     pointerEvents="none"
@@ -894,6 +934,15 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 999,
     backgroundColor: '#ff7a59',
+    overflow: 'hidden',
+  },
+  progressFillFlash: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 26,
+    borderRadius: 999,
+    backgroundColor: '#fff6de',
   },
   progressFillPlaying: {
     shadowColor: '#ff7a59',
