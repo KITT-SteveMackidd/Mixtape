@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import { getFlipCompletionSideIndex } from '../src/utils/flipCompletion.ts';
+
+test('queue header and reel caption stay on the current side until the flip fully finishes', () => {
+  assert.equal(
+    getFlipCompletionSideIndex({
+      sideIndex: 0,
+      isFlipping: true,
+      pendingFlipSideIndex: 1,
+    }),
+    0,
+  );
+
+  assert.equal(
+    getFlipCompletionSideIndex({
+      sideIndex: 1,
+      isFlipping: true,
+      pendingFlipSideIndex: 1,
+    }),
+    0,
+  );
+});
+
+test('queue header and reel caption settle onto the new side once rotation is complete', () => {
+  assert.equal(
+    getFlipCompletionSideIndex({
+      sideIndex: 1,
+      isFlipping: false,
+      pendingFlipSideIndex: null,
+    }),
+    1,
+  );
+});

@@ -17,6 +17,7 @@ import {
   consumePausedBoundaryResumeAck as resolvePausedBoundaryResumeAck,
   getPausedBoundaryResumeAckForInactivePlayback,
 } from './src/utils/pausedBoundaryResume';
+import { getFlipCompletionSideIndex } from './src/utils/flipCompletion';
 import { getFlipCopySideIndex } from './src/utils/flipCopy';
 import { getFlipMidpointSideIndex } from './src/utils/flipMidpoint';
 
@@ -139,6 +140,13 @@ export default function App() {
   const upcomingSide = seedTape.sides[sideIndex === 0 ? 1 : 0];
   const flipCopySide = seedTape.sides[
     getFlipCopySideIndex({
+      sideIndex,
+      isFlipping,
+      pendingFlipSideIndex,
+    })
+  ];
+  const flipCompletionSide = seedTape.sides[
+    getFlipCompletionSideIndex({
       sideIndex,
       isFlipping,
       pendingFlipSideIndex,
@@ -900,7 +908,7 @@ export default function App() {
                 >
                   <View style={styles.reelInner} />
                 </Animated.View>
-                <Text style={styles.reelCaption}>{activeSide.label.toLowerCase()}</Text>
+                <Text style={styles.reelCaption}>{flipCompletionSide.label.toLowerCase()}</Text>
               </View>
             </View>
 
@@ -988,7 +996,7 @@ export default function App() {
         </View>
 
         <View style={styles.listCard}>
-          <Text style={styles.listEyebrow}>{activeSide.label} queue</Text>
+          <Text style={styles.listEyebrow}>{flipCompletionSide.label} queue</Text>
           {activeSide.tracks.map((track, index) => (
             <Pressable
               key={track.id}
