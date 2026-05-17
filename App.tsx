@@ -99,6 +99,7 @@ export default function App() {
   const progressAnimation = useRef(new Animated.Value(0)).current;
   const scrubGrabAnimation = useRef(new Animated.Value(0)).current;
   const scrubSettleAnimation = useRef(new Animated.Value(0)).current;
+  const reelSettleAnimation = useRef(new Animated.Value(0)).current;
   const elapsedPulseAnimation = useRef(new Animated.Value(0)).current;
   const seekFlashAnimation = useRef(new Animated.Value(0)).current;
   const flipAnimation = useRef(new Animated.Value(0)).current;
@@ -174,6 +175,22 @@ export default function App() {
   const scrubThumbSettleX = scrubSettleAnimation.interpolate({
     inputRange: [-1, -0.42, 0, 0.42, 1],
     outputRange: [0, -2.5, 0, 2.5, 0],
+  });
+  const leftReelSettleScale = reelSettleAnimation.interpolate({
+    inputRange: [-1, -0.45, 0, 0.45, 1],
+    outputRange: [1, 1.018, 1, 0.988, 1],
+  });
+  const rightReelSettleScale = reelSettleAnimation.interpolate({
+    inputRange: [-1, -0.45, 0, 0.45, 1],
+    outputRange: [1, 0.988, 1, 1.018, 1],
+  });
+  const leftReelSettleTranslateY = reelSettleAnimation.interpolate({
+    inputRange: [-1, -0.45, 0, 0.45, 1],
+    outputRange: [0, 0.8, 0, -0.8, 0],
+  });
+  const rightReelSettleTranslateY = reelSettleAnimation.interpolate({
+    inputRange: [-1, -0.45, 0, 0.45, 1],
+    outputRange: [0, -0.8, 0, 0.8, 0],
   });
   const elapsedPulseScale = elapsedPulseAnimation.interpolate({
     inputRange: [0, 1],
@@ -519,6 +536,25 @@ export default function App() {
     ]).start();
   };
 
+  const animateReelSettle = () => {
+    reelSettleAnimation.stopAnimation();
+    reelSettleAnimation.setValue(0);
+    Animated.sequence([
+      Animated.timing(reelSettleAnimation, {
+        toValue: scrubDirectionRef.current === 'forward' ? 1 : -1,
+        duration: 95,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(reelSettleAnimation, {
+        toValue: 0,
+        duration: 165,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
   const handleScrubGrant = (event: GestureResponderEvent) => {
     setIsScrubbing(true);
     scrubSettleAnimation.stopAnimation();
@@ -536,6 +572,7 @@ export default function App() {
     setIsScrubbing(false);
     animateScrubGrab(0, 180);
     animateScrubSettle();
+    animateReelSettle();
     animateElapsedPulse();
     animateSeekFlash();
   };
@@ -582,7 +619,14 @@ export default function App() {
                   style={[
                     styles.reelOuter,
                     isPlaying && styles.reelOuterActive,
-                    { transform: [{ rotate: reelRotation }, { scale: leftReelTensionScale }] },
+                    {
+                      transform: [
+                        { rotate: reelRotation },
+                        { scale: leftReelTensionScale },
+                        { scale: leftReelSettleScale },
+                        { translateY: leftReelSettleTranslateY },
+                      ],
+                    },
                   ]}
                 >
                   <View style={styles.reelInner} />
@@ -656,7 +700,14 @@ export default function App() {
                     styles.reelOuter,
                     styles.reelOuterRight,
                     isPlaying && styles.reelOuterActive,
-                    { transform: [{ rotate: reverseReelRotation }, { scale: rightReelTensionScale }] },
+                    {
+                      transform: [
+                        { rotate: reverseReelRotation },
+                        { scale: rightReelTensionScale },
+                        { scale: rightReelSettleScale },
+                        { translateY: rightReelSettleTranslateY },
+                      ],
+                    },
                   ]}
                 >
                   <View style={styles.reelInner} />
