@@ -82,6 +82,7 @@ describe('App now playing flip flow', () => {
     expectTextPresent(root, 'side a');
     expectTextPresent(root, 'Side A queue');
     expectTextPresent(root, 'Rearview');
+    expectTextAbsent(root, 'Side B queue');
 
     act(() => {
       jest.advanceTimersByTime(325);
