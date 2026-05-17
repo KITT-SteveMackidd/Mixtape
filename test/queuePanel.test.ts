@@ -4,6 +4,23 @@ import test from 'node:test';
 import { seedTape } from '../src/data/seedTape.ts';
 import { getQueuePanelProps } from '../src/utils/queuePanel.ts';
 
+test('queue panel keeps the Side A eyebrow and tracks paired until flip completion finishes', () => {
+  const queuePanel = getQueuePanelProps({
+    tape: seedTape,
+    sideIndex: 1,
+    trackIndex: 1,
+    isFlipping: true,
+    pendingFlipSideIndex: 1,
+  });
+
+  assert.equal(queuePanel.eyebrow, 'Side A queue');
+  assert.deepEqual(
+    queuePanel.rows.map((row) => row.id),
+    ['A1', 'A2', 'A3'],
+  );
+  assert.equal(queuePanel.rows[1]?.isActive, true);
+});
+
 test('queue panel keeps the Side B eyebrow and tracks paired until flip back completion finishes', () => {
   const queuePanel = getQueuePanelProps({
     tape: seedTape,
