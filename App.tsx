@@ -17,6 +17,7 @@ import {
   consumePausedBoundaryResumeAck as resolvePausedBoundaryResumeAck,
   getPausedBoundaryResumeAckForInactivePlayback,
 } from './src/utils/pausedBoundaryResume';
+import { getFlipCopySideIndex } from './src/utils/flipCopy';
 
 const TICK_MS = 1000;
 
@@ -99,6 +100,7 @@ export default function App() {
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [isSideComplete, setIsSideComplete] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
+  const [pendingFlipSideIndex, setPendingFlipSideIndex] = useState<number | null>(null);
   const shouldResumeAfterFlipRef = useRef(false);
   const flipTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reelSpin = useRef(new Animated.Value(0)).current;
@@ -125,6 +127,13 @@ export default function App() {
 
   const activeSide = seedTape.sides[sideIndex];
   const upcomingSide = seedTape.sides[sideIndex === 0 ? 1 : 0];
+  const flipCopySide = seedTape.sides[
+    getFlipCopySideIndex({
+      sideIndex,
+      isFlipping,
+      pendingFlipSideIndex,
+    })
+  ];
   const featuredTrack = activeSide.tracks[trackIndex];
   const nextTrack = activeSide.tracks[trackIndex + 1] ?? null;
   const featuredTrackDuration = useMemo(() => parseDuration(featuredTrack.duration), [featuredTrack.duration]);
@@ -478,8 +487,10 @@ export default function App() {
 
     const shouldResumePlayback = isPlaying || shouldResumeAfterFlipRef.current;
     const shouldTriggerSideFlipAck = shouldResumeAfterFlipRef.current;
+    const nextSideIndex = sideIndex === 0 ? 1 : 0;
 
     pendingSideFlipAckRef.current = shouldTriggerSideFlipAck;
+    setPendingFlipSideIndex(nextSideIndex);
     primePausedBoundaryResumeAck(
       getPausedBoundaryResumeAckForInactivePlayback({ isPlaying: shouldResumePlayback, direction: 'forward' }),
     );
@@ -496,10 +507,12 @@ export default function App() {
       if (!finished) {
         pendingSideFlipAckRef.current = false;
         clearPausedBoundaryResumeAck();
+        setPendingFlipSideIndex(null);
         setIsFlipping(false);
         return;
       }
 
+      setPendingFlipSideIndex(null);
       setIsFlipping(false);
       setIsPlaying(shouldResumePlayback);
       if (pendingSideFlipAckRef.current && shouldResumePlayback) {
@@ -510,7 +523,7 @@ export default function App() {
     });
 
     flipTimeoutRef.current = setTimeout(() => {
-      setSideIndex((currentSideIndex) => (currentSideIndex === 0 ? 1 : 0));
+      setSideIndex(nextSideIndex);
       setTrackIndex(0);
       setElapsedSeconds(0);
       setIsSideComplete(false);
@@ -879,7 +892,7 @@ export default function App() {
             </View>
 
             <Animated.View pointerEvents="none" style={[styles.flipOverlay, { opacity: flipOverlayOpacity }]}>
-              <Text style={styles.flipOverlayText}>Flipping to {upcomingSide.label}</Text>
+              <Text style={styles.flipOverlayText}>Flipping to {flipCopySide.label}</Text>
             </Animated.View>
 
             <View style={[styles.labelStrip, { backgroundColor: seedTape.palette.label }]}>
@@ -903,7 +916,7 @@ export default function App() {
                 ]}
               >
                 <Text style={styles.sideCompleteEyebrow}>{activeSide.label} wrapped</Text>
-                <Text style={styles.sideCompleteTitle}>Flip to {upcomingSide.label}</Text>
+                <Text style={styles.sideCompleteTitle}>Flip to {flipCopySide.label}</Text>
                 <Text style={styles.sideCompleteHint}>Last track finished. Tap once to load the next side.</Text>
               </Pressable>
             ) : null}
@@ -926,7 +939,7 @@ export default function App() {
               />
               <TransportButton
                 disabled={isFlipping}
-                label={isFlipping ? 'flipping…' : isSideComplete ? `flip ${upcomingSide.label.toLowerCase()}` : 'flip'}
+                label={isFlipping ? `flipping ${flipCopySide.label.toLowerCase()}…` : isSideComplete ? `flip ${flipCopySide.label.toLowerCase()}` : 'flip'}
                 onPress={handleFlipSide}
                 variant={isSideComplete ? 'flip-ready' : 'default'}
               />
@@ -940,7 +953,7 @@ export default function App() {
             <Text style={styles.metaValue}>{featuredTrack.mood}</Text>
             <Text style={styles.metaHint}>
               {isFlipping
-                ? `The deck is turning over to ${upcomingSide.label.toLowerCase()}.`
+                ? `The deck is turning over to ${flipCopySide.label.toLowerCase()}.`
                 : isPlaying
                   ? 'Deck is rolling through the current cut.'
                   : 'Playback is paused and ready to resume.'}
