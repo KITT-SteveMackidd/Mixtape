@@ -69,11 +69,21 @@ describe('App now playing flip flow', () => {
     expectTextPresent(root, 'flipping side b…');
 
     act(() => {
-      jest.advanceTimersByTime(700);
+      jest.advanceTimersByTime(325);
+    });
+
+    expectTextPresent(root, 'Side B');
+    expectTextPresent(root, 'City Glow');
+    expectTextPresent(root, 'June Motel • 03:12');
+    expectTextPresent(root, 'side a');
+
+    act(() => {
+      jest.advanceTimersByTime(325);
     });
 
     expectTextPresent(root, 'Headlights Low');
     expectTextPresent(root, 'Mara Vale • 03:47');
+    expectTextPresent(root, 'side b');
     expectTextPresent(root, 'flip');
   });
 
