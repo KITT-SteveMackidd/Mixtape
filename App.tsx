@@ -37,9 +37,10 @@ type TransportButtonProps = {
   onPress: () => void;
   disabled?: boolean;
   variant?: 'default' | 'primary' | 'flip-ready';
+  onPressIn?: () => void;
 };
 
-function TransportButton({ label, onPress, disabled = false, variant = 'default' }: TransportButtonProps) {
+function TransportButton({ label, onPress, disabled = false, variant = 'default', onPressIn }: TransportButtonProps) {
   const pressAnimation = useRef(new Animated.Value(0)).current;
 
   const scale = pressAnimation.interpolate({
@@ -65,7 +66,10 @@ function TransportButton({ label, onPress, disabled = false, variant = 'default'
       <Pressable
         disabled={disabled}
         onPress={onPress}
-        onPressIn={() => animatePress(1, 70)}
+        onPressIn={() => {
+          onPressIn?.();
+          animatePress(1, 70);
+        }}
         onPressOut={() => animatePress(0, 160)}
         style={[
           styles.transportButton,
@@ -95,6 +99,8 @@ export default function App() {
   const progressAnimation = useRef(new Animated.Value(0)).current;
   const flipAnimation = useRef(new Animated.Value(0)).current;
   const tensionAnimation = useRef(new Animated.Value(0)).current;
+  const headSettleX = useRef(new Animated.Value(0)).current;
+  const headSettleY = useRef(new Animated.Value(0)).current;
   const hasMountedRef = useRef(false);
   const previousTrackRef = useRef({ sideIndex: 0, trackIndex: 0 });
 
@@ -149,6 +155,8 @@ export default function App() {
     inputRange: [0, 0.45, 1],
     outputRange: [0, 4, 0],
   });
+  const headSettleTranslateX = headSettleX;
+  const headSettleTranslateY = headSettleY;
 
   useEffect(() => {
     if (!isPlaying) {
@@ -244,6 +252,46 @@ export default function App() {
     previousTrackRef.current = { sideIndex, trackIndex };
     hasMountedRef.current = true;
   }, [isFlipping, sideIndex, tensionAnimation, trackIndex]);
+
+  const triggerHeadSettle = (direction: 'backward' | 'forward') => {
+    const settleX = direction === 'forward' ? 5 : -5;
+
+    headSettleX.stopAnimation();
+    headSettleY.stopAnimation();
+    headSettleX.setValue(0);
+    headSettleY.setValue(0);
+
+    Animated.parallel([
+      Animated.sequence([
+        Animated.timing(headSettleX, {
+          toValue: settleX,
+          duration: direction === 'forward' ? 110 : 95,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(headSettleX, {
+          toValue: 0,
+          duration: 180,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.sequence([
+        Animated.timing(headSettleY, {
+          toValue: 1,
+          duration: 80,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(headSettleY, {
+          toValue: 0,
+          duration: 150,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  };
 
   const handleTogglePlayback = () => {
     if (isFlipping) {
@@ -431,7 +479,12 @@ export default function App() {
                 </Animated.View>
                 <Text style={styles.reelCaption}>{isPlaying ? 'spin' : 'idle'}</Text>
               </View>
-              <Animated.View style={[styles.tapeBridge, { transform: [{ translateX: tapeBridgeTensionShift }] }]}>
+              <Animated.View
+                style={[
+                  styles.tapeBridge,
+                  { transform: [{ translateX: tapeBridgeTensionShift }, { translateX: headSettleTranslateX }, { translateY: headSettleTranslateY }] },
+                ]}
+              >
                 <Animated.View style={[styles.tapeLine, { opacity: tapeLineTensionOpacity, transform: [{ scaleX: tapeLineTensionScale }] }]} />
                 <Text style={styles.nowPlayingLabel}>{featuredTrack.title}</Text>
                 <Text style={styles.nowPlayingMeta}>
@@ -517,9 +570,19 @@ export default function App() {
             ) : null}
 
             <View style={styles.transportRow}>
-              <TransportButton disabled={isFlipping} label="rew" onPress={handleRewindTrack} />
+              <TransportButton
+                disabled={isFlipping}
+                label="rew"
+                onPress={handleRewindTrack}
+                onPressIn={() => triggerHeadSettle('backward')}
+              />
               <TransportButton disabled={isFlipping} label={isPlaying ? 'pause' : 'play'} onPress={handleTogglePlayback} variant="primary" />
-              <TransportButton disabled={isFlipping} label="ff" onPress={handleAdvanceTrack} />
+              <TransportButton
+                disabled={isFlipping}
+                label="ff"
+                onPress={handleAdvanceTrack}
+                onPressIn={() => triggerHeadSettle('forward')}
+              />
               <TransportButton
                 disabled={isFlipping}
                 label={isFlipping ? 'flipping…' : isSideComplete ? `flip ${upcomingSide.label.toLowerCase()}` : 'flip'}
