@@ -114,6 +114,7 @@ export default function App() {
   const hasMountedRef = useRef(false);
   const previousTrackRef = useRef({ sideIndex: 0, trackIndex: 0 });
   const pendingAutoAdvanceAckRef = useRef(false);
+  const pendingSideFlipAckRef = useRef(false);
   const scrubRatioRef = useRef(0);
   const scrubDirectionRef = useRef<'backward' | 'forward'>('forward');
 
@@ -438,7 +439,9 @@ export default function App() {
     }
 
     const shouldResumePlayback = isPlaying || shouldResumeAfterFlipRef.current;
+    const shouldTriggerSideFlipAck = shouldResumeAfterFlipRef.current;
 
+    pendingSideFlipAckRef.current = shouldTriggerSideFlipAck;
     setIsFlipping(true);
     setIsPlaying(false);
     flipAnimation.setValue(0);
@@ -450,12 +453,17 @@ export default function App() {
       useNativeDriver: true,
     }).start(({ finished }) => {
       if (!finished) {
+        pendingSideFlipAckRef.current = false;
         setIsFlipping(false);
         return;
       }
 
       setIsFlipping(false);
       setIsPlaying(shouldResumePlayback);
+      if (pendingSideFlipAckRef.current && shouldResumePlayback) {
+        triggerQueueSeekAcknowledgement('forward');
+        pendingSideFlipAckRef.current = false;
+      }
       flipAnimation.setValue(0);
     });
 
