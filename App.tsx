@@ -40,6 +40,7 @@ export default function App() {
   const [progressRailWidth, setProgressRailWidth] = useState(0);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [isSideComplete, setIsSideComplete] = useState(false);
+  const shouldResumeAfterFlipRef = useRef(false);
   const reelSpin = useRef(new Animated.Value(0)).current;
   const progressAnimation = useRef(new Animated.Value(0)).current;
 
@@ -74,6 +75,7 @@ export default function App() {
           const isLastTrack = trackIndex === activeSide.tracks.length - 1;
 
           if (isLastTrack) {
+            shouldResumeAfterFlipRef.current = true;
             setIsPlaying(false);
             setIsSideComplete(true);
             return featuredTrackDuration;
@@ -128,10 +130,19 @@ export default function App() {
       setIsSideComplete(false);
     }
 
-    setIsPlaying((currentState) => !currentState);
+    setIsPlaying((currentState) => {
+      const nextState = !currentState;
+
+      if (!nextState) {
+        shouldResumeAfterFlipRef.current = false;
+      }
+
+      return nextState;
+    });
   };
 
   const handleAdvanceTrack = () => {
+    shouldResumeAfterFlipRef.current = false;
     setElapsedSeconds(0);
     setIsSideComplete(false);
     setTrackIndex((currentTrackIndex) => {
@@ -144,6 +155,7 @@ export default function App() {
   };
 
   const handleRewindTrack = () => {
+    shouldResumeAfterFlipRef.current = false;
     setIsSideComplete(false);
 
     if (elapsedSeconds > 3) {
@@ -162,13 +174,18 @@ export default function App() {
   };
 
   const handleFlipSide = () => {
+    const shouldResumePlayback = isPlaying || shouldResumeAfterFlipRef.current;
+
     setSideIndex((currentSideIndex) => (currentSideIndex === 0 ? 1 : 0));
     setTrackIndex(0);
     setElapsedSeconds(0);
     setIsSideComplete(false);
+    setIsPlaying(shouldResumePlayback);
+    shouldResumeAfterFlipRef.current = false;
   };
 
   const handleSelectTrack = (selectedTrackIndex: number) => {
+    shouldResumeAfterFlipRef.current = false;
     setTrackIndex(selectedTrackIndex);
     setElapsedSeconds(0);
     setIsSideComplete(false);
