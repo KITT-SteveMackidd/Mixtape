@@ -20,6 +20,7 @@ import {
 import { getFlipCompletionSideIndex } from './src/utils/flipCompletion';
 import { getFlipCopySideIndex } from './src/utils/flipCopy';
 import { getFlipMidpointSideIndex } from './src/utils/flipMidpoint';
+import { getQueueListRows } from './src/utils/queueListBody';
 
 const TICK_MS = 1000;
 
@@ -997,13 +998,13 @@ export default function App() {
 
         <View style={styles.listCard}>
           <Text style={styles.listEyebrow}>{flipCompletionSide.label} queue</Text>
-          {activeSide.tracks.map((track, index) => (
+          {getQueueListRows(activeSide.tracks, trackIndex).map((track, index) => (
             <Pressable
               key={track.id}
               onPress={() => handleSelectTrack(index)}
               style={({ pressed }) => [
                 styles.trackRow,
-                index === trackIndex && styles.trackRowActive,
+                track.isActive && styles.trackRowActive,
                 pressed && styles.trackRowPressed,
               ]}
             >
