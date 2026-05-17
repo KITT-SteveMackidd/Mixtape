@@ -40,3 +40,21 @@ test('queue eyebrow label and body tracks settle onto Side B together after flip
   );
   assert.equal(rows[1]?.isActive, true);
 });
+
+test('queue eyebrow label and body tracks settle back onto Side A together after flip back completion', () => {
+  const visibleSideIndex = getFlipCompletionSideIndex({
+    sideIndex: 0,
+    isFlipping: false,
+    pendingFlipSideIndex: null,
+  });
+
+  const visibleSide = seedTape.sides[visibleSideIndex];
+  const rows = getQueueListRows(visibleSide.tracks, 1);
+
+  assert.equal(visibleSide?.label, 'Side A');
+  assert.deepEqual(
+    rows.map((row) => row.id),
+    ['A1', 'A2', 'A3'],
+  );
+  assert.equal(rows[1]?.isActive, true);
+});
