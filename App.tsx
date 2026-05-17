@@ -39,10 +39,12 @@ export default function App() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [progressRailWidth, setProgressRailWidth] = useState(0);
   const [isScrubbing, setIsScrubbing] = useState(false);
+  const [isSideComplete, setIsSideComplete] = useState(false);
   const reelSpin = useRef(new Animated.Value(0)).current;
   const progressAnimation = useRef(new Animated.Value(0)).current;
 
   const activeSide = seedTape.sides[sideIndex];
+  const upcomingSide = seedTape.sides[sideIndex === 0 ? 1 : 0];
   const featuredTrack = activeSide.tracks[trackIndex];
   const nextTrack = activeSide.tracks[trackIndex + 1] ?? null;
   const featuredTrackDuration = useMemo(() => parseDuration(featuredTrack.duration), [featuredTrack.duration]);
@@ -73,6 +75,7 @@ export default function App() {
 
           if (isLastTrack) {
             setIsPlaying(false);
+            setIsSideComplete(true);
             return featuredTrackDuration;
           }
 
@@ -122,6 +125,7 @@ export default function App() {
   const handleTogglePlayback = () => {
     if (!isPlaying && elapsedSeconds >= featuredTrackDuration) {
       setElapsedSeconds(0);
+      setIsSideComplete(false);
     }
 
     setIsPlaying((currentState) => !currentState);
@@ -129,6 +133,7 @@ export default function App() {
 
   const handleAdvanceTrack = () => {
     setElapsedSeconds(0);
+    setIsSideComplete(false);
     setTrackIndex((currentTrackIndex) => {
       if (currentTrackIndex === activeSide.tracks.length - 1) {
         return 0;
@@ -139,6 +144,8 @@ export default function App() {
   };
 
   const handleRewindTrack = () => {
+    setIsSideComplete(false);
+
     if (elapsedSeconds > 3) {
       setElapsedSeconds(0);
       return;
@@ -158,11 +165,13 @@ export default function App() {
     setSideIndex((currentSideIndex) => (currentSideIndex === 0 ? 1 : 0));
     setTrackIndex(0);
     setElapsedSeconds(0);
+    setIsSideComplete(false);
   };
 
   const handleSelectTrack = (selectedTrackIndex: number) => {
     setTrackIndex(selectedTrackIndex);
     setElapsedSeconds(0);
+    setIsSideComplete(false);
   };
 
   const updateScrubPosition = (locationX: number) => {
@@ -209,8 +218,14 @@ export default function App() {
               <Text style={styles.deckLabel}>Loaded tape</Text>
               <Text style={styles.deckCreator}>Made by {seedTape.creator}</Text>
             </View>
-            <View style={[styles.livePill, isPlaying && styles.livePillPlaying]}>
-              <Text style={styles.livePillText}>{isPlaying ? 'Playing' : 'Paused'}</Text>
+            <View
+              style={[
+                styles.livePill,
+                isPlaying && styles.livePillPlaying,
+                isSideComplete && styles.livePillComplete,
+              ]}
+            >
+              <Text style={styles.livePillText}>{isSideComplete ? 'Side complete' : isPlaying ? 'Playing' : 'Paused'}</Text>
             </View>
           </View>
 
@@ -293,6 +308,20 @@ export default function App() {
               </View>
             </View>
 
+            {isSideComplete ? (
+              <Pressable
+                onPress={handleFlipSide}
+                style={({ pressed }) => [
+                  styles.sideCompleteCard,
+                  pressed && styles.transportButtonPressed,
+                ]}
+              >
+                <Text style={styles.sideCompleteEyebrow}>{activeSide.label} wrapped</Text>
+                <Text style={styles.sideCompleteTitle}>Flip to {upcomingSide.label}</Text>
+                <Text style={styles.sideCompleteHint}>Last track finished. Tap once to load the next side.</Text>
+              </Pressable>
+            ) : null}
+
             <View style={styles.transportRow}>
               <Pressable onPress={handleRewindTrack} style={({ pressed }) => [styles.transportButton, pressed && styles.transportButtonPressed]}>
                 <Text style={styles.transportText}>rew</Text>
@@ -310,8 +339,15 @@ export default function App() {
               <Pressable onPress={handleAdvanceTrack} style={({ pressed }) => [styles.transportButton, pressed && styles.transportButtonPressed]}>
                 <Text style={styles.transportText}>ff</Text>
               </Pressable>
-              <Pressable onPress={handleFlipSide} style={({ pressed }) => [styles.transportButton, pressed && styles.transportButtonPressed]}>
-                <Text style={styles.transportText}>flip</Text>
+              <Pressable
+                onPress={handleFlipSide}
+                style={({ pressed }) => [
+                  styles.transportButton,
+                  isSideComplete && styles.transportFlipButtonReady,
+                  pressed && styles.transportButtonPressed,
+                ]}
+              >
+                <Text style={styles.transportText}>{isSideComplete ? `flip ${upcomingSide.label.toLowerCase()}` : 'flip'}</Text>
               </Pressable>
             </View>
           </View>
@@ -327,8 +363,12 @@ export default function App() {
           </View>
           <View style={styles.metaCard}>
             <Text style={styles.metaEyebrow}>Next up</Text>
-            <Text style={styles.metaValue}>{nextTrack?.title ?? 'End of side'}</Text>
-            <Text style={styles.metaHint}>{nextTrack?.artist ?? 'Flip the tape to keep the session going.'}</Text>
+            <Text style={styles.metaValue}>{isSideComplete ? `Ready for ${upcomingSide.label}` : nextTrack?.title ?? 'End of side'}</Text>
+            <Text style={styles.metaHint}>
+              {isSideComplete
+                ? 'The deck is paused at the leader. Flip the cassette to keep listening.'
+                : nextTrack?.artist ?? 'Flip the tape to keep the session going.'}
+            </Text>
           </View>
         </View>
 
@@ -431,6 +471,10 @@ const styles = StyleSheet.create({
   livePillPlaying: {
     backgroundColor: 'rgba(255, 209, 102, 0.14)',
     borderColor: 'rgba(255, 209, 102, 0.45)',
+  },
+  livePillComplete: {
+    backgroundColor: 'rgba(129, 230, 161, 0.14)',
+    borderColor: 'rgba(129, 230, 161, 0.45)',
   },
   livePillText: {
     color: '#ffd4c9',
@@ -592,6 +636,31 @@ const styles = StyleSheet.create({
     color: '#1f1912',
     fontWeight: '700',
   },
+  sideCompleteCard: {
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: 'rgba(129, 230, 161, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(129, 230, 161, 0.42)',
+    gap: 4,
+  },
+  sideCompleteEyebrow: {
+    color: '#9fe0b0',
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 1.4,
+  },
+  sideCompleteTitle: {
+    color: '#fff7ea',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  sideCompleteHint: {
+    color: '#d3f0db',
+    fontSize: 13,
+    lineHeight: 18,
+  },
   transportRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -609,6 +678,10 @@ const styles = StyleSheet.create({
   transportPrimaryButton: {
     backgroundColor: '#3d291f',
     borderColor: '#ff7a59',
+  },
+  transportFlipButtonReady: {
+    backgroundColor: 'rgba(129, 230, 161, 0.18)',
+    borderColor: 'rgba(129, 230, 161, 0.5)',
   },
   transportButtonPressed: {
     opacity: 0.82,
