@@ -37,3 +37,37 @@ test('queue panel keeps the Side B eyebrow and tracks paired until flip back com
   );
   assert.equal(queuePanel.rows[1]?.isActive, true);
 });
+
+test('queue panel settles onto Side B after a forward flip completes', () => {
+  const queuePanel = getQueuePanelProps({
+    tape: seedTape,
+    sideIndex: 1,
+    trackIndex: 1,
+    isFlipping: false,
+    pendingFlipSideIndex: null,
+  });
+
+  assert.equal(queuePanel.eyebrow, 'Side B queue');
+  assert.deepEqual(
+    queuePanel.rows.map((row) => row.id),
+    ['B1', 'B2', 'B3'],
+  );
+  assert.equal(queuePanel.rows[1]?.isActive, true);
+});
+
+test('queue panel settles back onto Side A after a reverse flip completes', () => {
+  const queuePanel = getQueuePanelProps({
+    tape: seedTape,
+    sideIndex: 0,
+    trackIndex: 1,
+    isFlipping: false,
+    pendingFlipSideIndex: null,
+  });
+
+  assert.equal(queuePanel.eyebrow, 'Side A queue');
+  assert.deepEqual(
+    queuePanel.rows.map((row) => row.id),
+    ['A1', 'A2', 'A3'],
+  );
+  assert.equal(queuePanel.rows[1]?.isActive, true);
+});
