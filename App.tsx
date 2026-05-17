@@ -46,6 +46,9 @@ export default function App() {
   const reelSpin = useRef(new Animated.Value(0)).current;
   const progressAnimation = useRef(new Animated.Value(0)).current;
   const flipAnimation = useRef(new Animated.Value(0)).current;
+  const tensionAnimation = useRef(new Animated.Value(0)).current;
+  const hasMountedRef = useRef(false);
+  const previousTrackRef = useRef({ sideIndex: 0, trackIndex: 0 });
 
   const activeSide = seedTape.sides[sideIndex];
   const upcomingSide = seedTape.sides[sideIndex === 0 ? 1 : 0];
@@ -77,6 +80,26 @@ export default function App() {
   const flipOverlayOpacity = flipAnimation.interpolate({
     inputRange: [0, 0.15, 0.5, 0.85, 1],
     outputRange: [0, 0.5, 0.85, 0.5, 0],
+  });
+  const leftReelTensionScale = tensionAnimation.interpolate({
+    inputRange: [0, 0.45, 1],
+    outputRange: [1, 0.95, 1],
+  });
+  const rightReelTensionScale = tensionAnimation.interpolate({
+    inputRange: [0, 0.45, 1],
+    outputRange: [1, 1.08, 1],
+  });
+  const tapeLineTensionScale = tensionAnimation.interpolate({
+    inputRange: [0, 0.45, 1],
+    outputRange: [1, 0.9, 1],
+  });
+  const tapeLineTensionOpacity = tensionAnimation.interpolate({
+    inputRange: [0, 0.45, 1],
+    outputRange: [0.6, 1, 0.6],
+  });
+  const tapeBridgeTensionShift = tensionAnimation.interpolate({
+    inputRange: [0, 0.45, 1],
+    outputRange: [0, 4, 0],
   });
 
   useEffect(() => {
@@ -146,6 +169,33 @@ export default function App() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    const previousTrack = previousTrackRef.current;
+    const didTrackChange = previousTrack.sideIndex === sideIndex && previousTrack.trackIndex !== trackIndex;
+
+    if (hasMountedRef.current && didTrackChange && !isFlipping) {
+      tensionAnimation.stopAnimation();
+      tensionAnimation.setValue(0);
+      Animated.sequence([
+        Animated.timing(tensionAnimation, {
+          toValue: 1,
+          duration: 170,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(tensionAnimation, {
+          toValue: 0,
+          duration: 220,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+
+    previousTrackRef.current = { sideIndex, trackIndex };
+    hasMountedRef.current = true;
+  }, [isFlipping, sideIndex, tensionAnimation, trackIndex]);
 
   const handleTogglePlayback = () => {
     if (isFlipping) {
@@ -326,15 +376,15 @@ export default function App() {
                   style={[
                     styles.reelOuter,
                     isPlaying && styles.reelOuterActive,
-                    { transform: [{ rotate: reelRotation }] },
+                    { transform: [{ rotate: reelRotation }, { scale: leftReelTensionScale }] },
                   ]}
                 >
                   <View style={styles.reelInner} />
                 </Animated.View>
                 <Text style={styles.reelCaption}>{isPlaying ? 'spin' : 'idle'}</Text>
               </View>
-              <View style={styles.tapeBridge}>
-                <View style={styles.tapeLine} />
+              <Animated.View style={[styles.tapeBridge, { transform: [{ translateX: tapeBridgeTensionShift }] }]}>
+                <Animated.View style={[styles.tapeLine, { opacity: tapeLineTensionOpacity, transform: [{ scaleX: tapeLineTensionScale }] }]} />
                 <Text style={styles.nowPlayingLabel}>{featuredTrack.title}</Text>
                 <Text style={styles.nowPlayingMeta}>
                   {featuredTrack.artist} • {featuredTrack.duration}
@@ -372,14 +422,14 @@ export default function App() {
                     ]}
                   />
                 </View>
-              </View>
+              </Animated.View>
               <View style={styles.reelColumn}>
                 <Animated.View
                   style={[
                     styles.reelOuter,
                     styles.reelOuterRight,
                     isPlaying && styles.reelOuterActive,
-                    { transform: [{ rotate: reverseReelRotation }] },
+                    { transform: [{ rotate: reverseReelRotation }, { scale: rightReelTensionScale }] },
                   ]}
                 >
                   <View style={styles.reelInner} />
