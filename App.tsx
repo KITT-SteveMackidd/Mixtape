@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useState } from 'react';
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Easing, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { seedTape } from './src/data/seedTape';
 
 const TICK_MS = 1000;
@@ -26,12 +26,26 @@ export default function App() {
   const [trackIndex, setTrackIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const reelSpin = useRef(new Animated.Value(0)).current;
+  const progressAnimation = useRef(new Animated.Value(0)).current;
 
   const activeSide = seedTape.sides[sideIndex];
   const featuredTrack = activeSide.tracks[trackIndex];
   const nextTrack = activeSide.tracks[trackIndex + 1] ?? null;
   const featuredTrackDuration = useMemo(() => parseDuration(featuredTrack.duration), [featuredTrack.duration]);
   const progressRatio = elapsedSeconds / featuredTrackDuration;
+  const reelRotation = reelSpin.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+  const reverseReelRotation = reelSpin.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '-360deg'],
+  });
+  const animatedProgressWidth = progressAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['6%', '100%'],
+  });
 
   useEffect(() => {
     if (!isPlaying) {
@@ -58,6 +72,38 @@ export default function App() {
 
     return () => clearInterval(timer);
   }, [activeSide.tracks.length, featuredTrackDuration, isPlaying, trackIndex]);
+
+  useEffect(() => {
+    if (!isPlaying) {
+      reelSpin.stopAnimation();
+      reelSpin.setValue(0);
+      return;
+    }
+
+    reelSpin.setValue(0);
+
+    const loop = Animated.loop(
+      Animated.timing(reelSpin, {
+        toValue: 1,
+        duration: 1600,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+
+    loop.start();
+
+    return () => loop.stop();
+  }, [isPlaying, reelSpin]);
+
+  useEffect(() => {
+    Animated.timing(progressAnimation, {
+      toValue: Math.min(1, Math.max(0, progressRatio || 0)),
+      duration: isPlaying ? 450 : 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [isPlaying, progressAnimation, progressRatio]);
 
   const handleTogglePlayback = () => {
     if (!isPlaying && elapsedSeconds >= featuredTrackDuration) {
@@ -100,6 +146,11 @@ export default function App() {
     setElapsedSeconds(0);
   };
 
+  const handleSelectTrack = (selectedTrackIndex: number) => {
+    setTrackIndex(selectedTrackIndex);
+    setElapsedSeconds(0);
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
@@ -124,9 +175,15 @@ export default function App() {
           <View style={[styles.cassetteShell, { backgroundColor: seedTape.palette.shell }]}>
             <View style={styles.cassetteWindow}>
               <View style={styles.reelColumn}>
-                <View style={[styles.reelOuter, isPlaying && styles.reelOuterActive]}>
+                <Animated.View
+                  style={[
+                    styles.reelOuter,
+                    isPlaying && styles.reelOuterActive,
+                    { transform: [{ rotate: reelRotation }] },
+                  ]}
+                >
                   <View style={styles.reelInner} />
-                </View>
+                </Animated.View>
                 <Text style={styles.reelCaption}>{isPlaying ? 'spin' : 'idle'}</Text>
               </View>
               <View style={styles.tapeBridge}>
@@ -139,18 +196,26 @@ export default function App() {
                   {formatProgress(elapsedSeconds)} / {featuredTrack.duration}
                 </Text>
                 <View style={styles.progressRail}>
-                  <View
+                  <Animated.View
                     style={[
                       styles.progressFill,
-                      { width: `${Math.min(100, Math.max(6, progressRatio * 100))}%` },
+                      isPlaying && styles.progressFillPlaying,
+                      { width: animatedProgressWidth },
                     ]}
                   />
                 </View>
               </View>
               <View style={styles.reelColumn}>
-                <View style={[styles.reelOuter, styles.reelOuterRight, isPlaying && styles.reelOuterActive]}>
+                <Animated.View
+                  style={[
+                    styles.reelOuter,
+                    styles.reelOuterRight,
+                    isPlaying && styles.reelOuterActive,
+                    { transform: [{ rotate: reverseReelRotation }] },
+                  ]}
+                >
                   <View style={styles.reelInner} />
-                </View>
+                </Animated.View>
                 <Text style={styles.reelCaption}>{activeSide.label.toLowerCase()}</Text>
               </View>
             </View>
@@ -207,14 +272,22 @@ export default function App() {
         <View style={styles.listCard}>
           <Text style={styles.listEyebrow}>{activeSide.label} queue</Text>
           {activeSide.tracks.map((track, index) => (
-            <View key={track.id} style={[styles.trackRow, index === trackIndex && styles.trackRowActive]}>
+            <Pressable
+              key={track.id}
+              onPress={() => handleSelectTrack(index)}
+              style={({ pressed }) => [
+                styles.trackRow,
+                index === trackIndex && styles.trackRowActive,
+                pressed && styles.trackRowPressed,
+              ]}
+            >
               <View>
                 <Text style={styles.trackIndex}>{track.id}</Text>
                 <Text style={styles.trackTitle}>{track.title}</Text>
                 <Text style={styles.trackMeta}>{track.artist}</Text>
               </View>
               <Text style={styles.trackDuration}>{track.duration}</Text>
-            </View>
+            </Pressable>
           ))}
         </View>
       </ScrollView>
@@ -393,6 +466,11 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: '#ff7a59',
   },
+  progressFillPlaying: {
+    shadowColor: '#ff7a59',
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+  },
   labelStrip: {
     borderRadius: 18,
     paddingHorizontal: 14,
@@ -511,6 +589,10 @@ const styles = StyleSheet.create({
   trackRowActive: {
     borderColor: 'rgba(255, 122, 89, 0.55)',
     backgroundColor: 'rgba(255, 122, 89, 0.08)',
+  },
+  trackRowPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.99 }],
   },
   trackIndex: {
     color: '#ffb59f',
