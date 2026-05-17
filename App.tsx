@@ -1,11 +1,105 @@
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { seedTape } from './src/data/seedTape';
 
-const activeSide = seedTape.sides[0];
-const featuredTrack = activeSide.tracks[0];
+const TICK_MS = 1000;
+
+function parseDuration(duration: string) {
+  const [minutes, seconds] = duration.split(':').map(Number);
+
+  return minutes * 60 + seconds;
+}
+
+function formatProgress(seconds: number) {
+  const safeSeconds = Math.max(0, seconds);
+  const minutes = Math.floor(safeSeconds / 60)
+    .toString()
+    .padStart(2, '0');
+  const remainder = (safeSeconds % 60).toString().padStart(2, '0');
+
+  return `${minutes}:${remainder}`;
+}
 
 export default function App() {
+  const [sideIndex, setSideIndex] = useState(0);
+  const [trackIndex, setTrackIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  const activeSide = seedTape.sides[sideIndex];
+  const featuredTrack = activeSide.tracks[trackIndex];
+  const nextTrack = activeSide.tracks[trackIndex + 1] ?? null;
+  const featuredTrackDuration = useMemo(() => parseDuration(featuredTrack.duration), [featuredTrack.duration]);
+  const progressRatio = elapsedSeconds / featuredTrackDuration;
+
+  useEffect(() => {
+    if (!isPlaying) {
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setElapsedSeconds((currentElapsed) => {
+        if (currentElapsed + 1 >= featuredTrackDuration) {
+          const isLastTrack = trackIndex === activeSide.tracks.length - 1;
+
+          if (isLastTrack) {
+            setIsPlaying(false);
+            return featuredTrackDuration;
+          }
+
+          setTrackIndex((currentTrackIndex) => currentTrackIndex + 1);
+          return 0;
+        }
+
+        return currentElapsed + 1;
+      });
+    }, TICK_MS);
+
+    return () => clearInterval(timer);
+  }, [activeSide.tracks.length, featuredTrackDuration, isPlaying, trackIndex]);
+
+  const handleTogglePlayback = () => {
+    if (!isPlaying && elapsedSeconds >= featuredTrackDuration) {
+      setElapsedSeconds(0);
+    }
+
+    setIsPlaying((currentState) => !currentState);
+  };
+
+  const handleAdvanceTrack = () => {
+    setElapsedSeconds(0);
+    setTrackIndex((currentTrackIndex) => {
+      if (currentTrackIndex === activeSide.tracks.length - 1) {
+        return 0;
+      }
+
+      return currentTrackIndex + 1;
+    });
+  };
+
+  const handleRewindTrack = () => {
+    if (elapsedSeconds > 3) {
+      setElapsedSeconds(0);
+      return;
+    }
+
+    setElapsedSeconds(0);
+    setTrackIndex((currentTrackIndex) => {
+      if (currentTrackIndex === 0) {
+        return activeSide.tracks.length - 1;
+      }
+
+      return currentTrackIndex - 1;
+    });
+  };
+
+  const handleFlipSide = () => {
+    setSideIndex((currentSideIndex) => (currentSideIndex === 0 ? 1 : 0));
+    setTrackIndex(0);
+    setElapsedSeconds(0);
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
@@ -22,18 +116,18 @@ export default function App() {
               <Text style={styles.deckLabel}>Loaded tape</Text>
               <Text style={styles.deckCreator}>Made by {seedTape.creator}</Text>
             </View>
-            <View style={styles.livePill}>
-              <Text style={styles.livePillText}>Seeded demo</Text>
+            <View style={[styles.livePill, isPlaying && styles.livePillPlaying]}>
+              <Text style={styles.livePillText}>{isPlaying ? 'Playing' : 'Paused'}</Text>
             </View>
           </View>
 
           <View style={[styles.cassetteShell, { backgroundColor: seedTape.palette.shell }]}>
             <View style={styles.cassetteWindow}>
               <View style={styles.reelColumn}>
-                <View style={styles.reelOuter}>
+                <View style={[styles.reelOuter, isPlaying && styles.reelOuterActive]}>
                   <View style={styles.reelInner} />
                 </View>
-                <Text style={styles.reelCaption}>play</Text>
+                <Text style={styles.reelCaption}>{isPlaying ? 'spin' : 'idle'}</Text>
               </View>
               <View style={styles.tapeBridge}>
                 <View style={styles.tapeLine} />
@@ -41,9 +135,20 @@ export default function App() {
                 <Text style={styles.nowPlayingMeta}>
                   {featuredTrack.artist} • {featuredTrack.duration}
                 </Text>
+                <Text style={styles.progressText}>
+                  {formatProgress(elapsedSeconds)} / {featuredTrack.duration}
+                </Text>
+                <View style={styles.progressRail}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      { width: `${Math.min(100, Math.max(6, progressRatio * 100))}%` },
+                    ]}
+                  />
+                </View>
               </View>
               <View style={styles.reelColumn}>
-                <View style={[styles.reelOuter, styles.reelOuterRight]}>
+                <View style={[styles.reelOuter, styles.reelOuterRight, isPlaying && styles.reelOuterActive]}>
                   <View style={styles.reelInner} />
                 </View>
                 <Text style={styles.reelCaption}>{activeSide.label.toLowerCase()}</Text>
@@ -55,17 +160,31 @@ export default function App() {
                 <Text style={[styles.labelTitle, { color: seedTape.palette.ink }]}>{seedTape.title}</Text>
                 <Text style={[styles.labelSubtitle, { color: seedTape.palette.ink }]}>private deck preview</Text>
               </View>
-              <View style={styles.sideBadge}>
+              <View style={[styles.sideBadge, { backgroundColor: activeSide.accent }]}>
                 <Text style={styles.sideBadgeText}>{activeSide.label}</Text>
               </View>
             </View>
 
             <View style={styles.transportRow}>
-              {['rew', 'play', 'ff', 'flip'].map((item) => (
-                <View key={item} style={styles.transportButton}>
-                  <Text style={styles.transportText}>{item}</Text>
-                </View>
-              ))}
+              <Pressable onPress={handleRewindTrack} style={({ pressed }) => [styles.transportButton, pressed && styles.transportButtonPressed]}>
+                <Text style={styles.transportText}>rew</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleTogglePlayback}
+                style={({ pressed }) => [
+                  styles.transportButton,
+                  styles.transportPrimaryButton,
+                  pressed && styles.transportButtonPressed,
+                ]}
+              >
+                <Text style={styles.transportText}>{isPlaying ? 'pause' : 'play'}</Text>
+              </Pressable>
+              <Pressable onPress={handleAdvanceTrack} style={({ pressed }) => [styles.transportButton, pressed && styles.transportButtonPressed]}>
+                <Text style={styles.transportText}>ff</Text>
+              </Pressable>
+              <Pressable onPress={handleFlipSide} style={({ pressed }) => [styles.transportButton, pressed && styles.transportButtonPressed]}>
+                <Text style={styles.transportText}>flip</Text>
+              </Pressable>
             </View>
           </View>
         </View>
@@ -74,19 +193,21 @@ export default function App() {
           <View style={styles.metaCard}>
             <Text style={styles.metaEyebrow}>Current vibe</Text>
             <Text style={styles.metaValue}>{featuredTrack.mood}</Text>
-            <Text style={styles.metaHint}>One focal state, tactile visuals, no playback logic yet.</Text>
+            <Text style={styles.metaHint}>
+              {isPlaying ? 'Deck is rolling through the current cut.' : 'Playback is paused and ready to resume.'}
+            </Text>
           </View>
           <View style={styles.metaCard}>
             <Text style={styles.metaEyebrow}>Next up</Text>
-            <Text style={styles.metaValue}>{activeSide.tracks[1].title}</Text>
-            <Text style={styles.metaHint}>{activeSide.tracks[1].artist}</Text>
+            <Text style={styles.metaValue}>{nextTrack?.title ?? 'End of side'}</Text>
+            <Text style={styles.metaHint}>{nextTrack?.artist ?? 'Flip the tape to keep the session going.'}</Text>
           </View>
         </View>
 
         <View style={styles.listCard}>
           <Text style={styles.listEyebrow}>{activeSide.label} queue</Text>
           {activeSide.tracks.map((track, index) => (
-            <View key={track.id} style={[styles.trackRow, index === 0 && styles.trackRowActive]}>
+            <View key={track.id} style={[styles.trackRow, index === trackIndex && styles.trackRowActive]}>
               <View>
                 <Text style={styles.trackIndex}>{track.id}</Text>
                 <Text style={styles.trackTitle}>{track.title}</Text>
@@ -171,6 +292,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
+  livePillPlaying: {
+    backgroundColor: 'rgba(255, 209, 102, 0.14)',
+    borderColor: 'rgba(255, 209, 102, 0.45)',
+  },
   livePillText: {
     color: '#ffd4c9',
     fontSize: 12,
@@ -203,6 +328,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#1f1912',
+  },
+  reelOuterActive: {
+    borderColor: '#f6e4b7',
   },
   reelOuterRight: {
     borderColor: '#6d5b46',
@@ -247,6 +375,24 @@ const styles = StyleSheet.create({
     color: '#d4c5aa',
     fontSize: 13,
   },
+  progressText: {
+    color: '#f6e4b7',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  progressRail: {
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 209, 102, 0.18)',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: '#ff7a59',
+  },
   labelStrip: {
     borderRadius: 18,
     paddingHorizontal: 14,
@@ -272,12 +418,11 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: '#1f1912',
     alignItems: 'center',
     justifyContent: 'center',
   },
   sideBadgeText: {
-    color: '#f8edd5',
+    color: '#1f1912',
     fontWeight: '700',
   },
   transportRow: {
@@ -293,6 +438,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#5f5140',
+  },
+  transportPrimaryButton: {
+    backgroundColor: '#3d291f',
+    borderColor: '#ff7a59',
+  },
+  transportButtonPressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.98 }],
   },
   transportText: {
     color: '#f8edd5',
