@@ -76,4 +76,40 @@ describe('App now playing flip flow', () => {
     expectTextPresent(root, 'Mara Vale • 03:47');
     expectTextPresent(root, 'flip');
   });
+
+  it('keeps the rendered title and meta paired during a reverse flip, then settles them together on the prior side', () => {
+    let renderer;
+    act(() => {
+      renderer = TestRenderer.create(React.createElement(App));
+    });
+
+    const root = renderer.root;
+
+    act(() => {
+      findPressableByText(root, 'flip').props.onPress();
+    });
+
+    act(() => {
+      jest.advanceTimersByTime(700);
+    });
+
+    expectTextPresent(root, 'Headlights Low');
+    expectTextPresent(root, 'Mara Vale • 03:47');
+
+    act(() => {
+      findPressableByText(root, 'flip').props.onPress();
+    });
+
+    expectTextPresent(root, 'Headlights Low');
+    expectTextPresent(root, 'Mara Vale • 03:47');
+    expectTextPresent(root, 'flipping side a…');
+
+    act(() => {
+      jest.advanceTimersByTime(700);
+    });
+
+    expectTextPresent(root, 'City Glow');
+    expectTextPresent(root, 'June Motel • 03:12');
+    expectTextPresent(root, 'flip');
+  });
 });
