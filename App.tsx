@@ -113,6 +113,7 @@ export default function App() {
   const headSettleY = useRef(new Animated.Value(0)).current;
   const hasMountedRef = useRef(false);
   const previousTrackRef = useRef({ sideIndex: 0, trackIndex: 0 });
+  const pendingAutoAdvanceAckRef = useRef(false);
   const scrubRatioRef = useRef(0);
   const scrubDirectionRef = useRef<'backward' | 'forward'>('forward');
 
@@ -243,6 +244,7 @@ export default function App() {
             return featuredTrackDuration;
           }
 
+          pendingAutoAdvanceAckRef.current = true;
           setTrackIndex((currentTrackIndex) => currentTrackIndex + 1);
           return 0;
         }
@@ -315,6 +317,11 @@ export default function App() {
           useNativeDriver: true,
         }),
       ]).start();
+    }
+
+    if (didTrackChange && pendingAutoAdvanceAckRef.current) {
+      triggerQueueSeekAcknowledgement('forward');
+      pendingAutoAdvanceAckRef.current = false;
     }
 
     previousTrackRef.current = { sideIndex, trackIndex };
