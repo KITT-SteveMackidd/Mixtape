@@ -98,6 +98,7 @@ export default function App() {
   const reelSpin = useRef(new Animated.Value(0)).current;
   const progressAnimation = useRef(new Animated.Value(0)).current;
   const scrubGrabAnimation = useRef(new Animated.Value(0)).current;
+  const elapsedPulseAnimation = useRef(new Animated.Value(0)).current;
   const flipAnimation = useRef(new Animated.Value(0)).current;
   const tensionAnimation = useRef(new Animated.Value(0)).current;
   const headSettleX = useRef(new Animated.Value(0)).current;
@@ -165,6 +166,10 @@ export default function App() {
   const scrubThumbTranslateY = scrubGrabAnimation.interpolate({
     inputRange: [0, 1],
     outputRange: [0, 1],
+  });
+  const elapsedPulseScale = elapsedPulseAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.05],
   });
 
   useEffect(() => {
@@ -435,6 +440,25 @@ export default function App() {
     }).start();
   };
 
+  const animateElapsedPulse = () => {
+    elapsedPulseAnimation.stopAnimation();
+    elapsedPulseAnimation.setValue(0);
+    Animated.sequence([
+      Animated.timing(elapsedPulseAnimation, {
+        toValue: 1,
+        duration: 95,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+      Animated.timing(elapsedPulseAnimation, {
+        toValue: 0,
+        duration: 150,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
   const handleScrubGrant = (event: GestureResponderEvent) => {
     setIsScrubbing(true);
     animateScrubGrab(1, 80);
@@ -448,6 +472,7 @@ export default function App() {
   const handleScrubRelease = () => {
     setIsScrubbing(false);
     animateScrubGrab(0, 180);
+    animateElapsedPulse();
   };
 
   return (
@@ -511,7 +536,11 @@ export default function App() {
                   {featuredTrack.artist} • {featuredTrack.duration}
                 </Text>
                 <Text style={styles.progressText}>
-                  {formatProgress(elapsedSeconds)} / {featuredTrack.duration}
+                  <Animated.Text style={[styles.progressElapsedText, { transform: [{ scale: elapsedPulseScale }] }]}>
+                    {formatProgress(elapsedSeconds)}
+                  </Animated.Text>
+                  {' / '}
+                  {featuredTrack.duration}
                 </Text>
                 <View
                   style={styles.progressRailTouchTarget}
@@ -847,6 +876,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 12,
     marginBottom: 8,
+  },
+  progressElapsedText: {
+    color: '#fff2cf',
   },
   progressRailTouchTarget: {
     justifyContent: 'center',
