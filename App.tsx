@@ -376,9 +376,10 @@ export default function App() {
       return;
     }
 
+    const isPausedAtTrackBoundary = !isPlaying && (elapsedSeconds === 0 || elapsedSeconds >= featuredTrackDuration);
     const shouldTriggerManualFlipResumeAck =
       !isPlaying && pendingManualFlipResumeAckRef.current && trackIndex === 0 && elapsedSeconds === 0;
-    const shouldTriggerTransportResumeAck = !isPlaying && elapsedSeconds === 0 ? pendingTransportResumeAckRef.current : null;
+    const shouldTriggerTransportResumeAck = isPausedAtTrackBoundary ? pendingTransportResumeAckRef.current : null;
 
     if (!isPlaying && elapsedSeconds >= featuredTrackDuration) {
       setElapsedSeconds(0);
@@ -697,6 +698,10 @@ export default function App() {
 
   const handleScrubRelease = () => {
     setIsScrubbing(false);
+    pendingTransportResumeAckRef.current =
+      !isPlaying && (elapsedSeconds === 0 || elapsedSeconds >= featuredTrackDuration)
+        ? scrubDirectionRef.current
+        : null;
     animateScrubGrab(0, 180);
     animateScrubSettle();
     animateReelSettle();
