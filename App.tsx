@@ -97,6 +97,7 @@ export default function App() {
   const flipTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reelSpin = useRef(new Animated.Value(0)).current;
   const progressAnimation = useRef(new Animated.Value(0)).current;
+  const scrubGrabAnimation = useRef(new Animated.Value(0)).current;
   const flipAnimation = useRef(new Animated.Value(0)).current;
   const tensionAnimation = useRef(new Animated.Value(0)).current;
   const headSettleX = useRef(new Animated.Value(0)).current;
@@ -157,6 +158,14 @@ export default function App() {
   });
   const headSettleTranslateX = headSettleX;
   const headSettleTranslateY = headSettleY;
+  const scrubThumbScale = scrubGrabAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.12],
+  });
+  const scrubThumbTranslateY = scrubGrabAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
 
   useEffect(() => {
     if (!isPlaying) {
@@ -417,8 +426,18 @@ export default function App() {
     setProgressRailWidth(event.nativeEvent.layout.width);
   };
 
+  const animateScrubGrab = (toValue: number, duration: number) => {
+    Animated.timing(scrubGrabAnimation, {
+      toValue,
+      duration,
+      easing: toValue === 1 ? Easing.out(Easing.quad) : Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  };
+
   const handleScrubGrant = (event: GestureResponderEvent) => {
     setIsScrubbing(true);
+    animateScrubGrab(1, 80);
     updateScrubPosition(event.nativeEvent.locationX);
   };
 
@@ -428,6 +447,7 @@ export default function App() {
 
   const handleScrubRelease = () => {
     setIsScrubbing(false);
+    animateScrubGrab(0, 180);
   };
 
   return (
@@ -512,13 +532,14 @@ export default function App() {
                       ]}
                     />
                   </View>
-                  <View
+                  <Animated.View
                     pointerEvents="none"
                     style={[
                       styles.progressThumb,
                       isScrubbing && styles.progressThumbActive,
                       {
                         left: `${boundedProgressRatio * 100}%`,
+                        transform: [{ translateY: scrubThumbTranslateY }, { scale: scrubThumbScale }],
                       },
                     ]}
                   />
