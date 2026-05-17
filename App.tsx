@@ -510,7 +510,7 @@ export default function App() {
 
     pendingManualFlipResumeAckRef.current = false;
     shouldResumeAfterFlipRef.current = false;
-    pendingTransportResumeAckRef.current = null;
+    pendingTransportResumeAckRef.current = !isPlaying ? direction : null;
     triggerQueueSeekAcknowledgement(direction);
     setTrackIndex(selectedTrackIndex);
     setElapsedSeconds(0);
