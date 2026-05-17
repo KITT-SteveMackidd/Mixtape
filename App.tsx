@@ -115,6 +115,7 @@ export default function App() {
   const previousTrackRef = useRef({ sideIndex: 0, trackIndex: 0 });
   const pendingAutoAdvanceAckRef = useRef(false);
   const pendingSideFlipAckRef = useRef(false);
+  const pendingManualFlipResumeAckRef = useRef(false);
   const scrubRatioRef = useRef(0);
   const scrubDirectionRef = useRef<'backward' | 'forward'>('forward');
 
@@ -374,9 +375,17 @@ export default function App() {
       return;
     }
 
+    const shouldTriggerManualFlipResumeAck =
+      !isPlaying && pendingManualFlipResumeAckRef.current && trackIndex === 0 && elapsedSeconds === 0;
+
     if (!isPlaying && elapsedSeconds >= featuredTrackDuration) {
       setElapsedSeconds(0);
       setIsSideComplete(false);
+    }
+
+    if (shouldTriggerManualFlipResumeAck) {
+      triggerQueueSeekAcknowledgement('forward');
+      pendingManualFlipResumeAckRef.current = false;
     }
 
     setIsPlaying((currentState) => {
@@ -395,6 +404,7 @@ export default function App() {
       return;
     }
 
+    pendingManualFlipResumeAckRef.current = false;
     shouldResumeAfterFlipRef.current = false;
     setElapsedSeconds(0);
     setIsSideComplete(false);
@@ -413,6 +423,7 @@ export default function App() {
       return;
     }
 
+    pendingManualFlipResumeAckRef.current = false;
     shouldResumeAfterFlipRef.current = false;
     setIsSideComplete(false);
 
@@ -440,8 +451,10 @@ export default function App() {
 
     const shouldResumePlayback = isPlaying || shouldResumeAfterFlipRef.current;
     const shouldTriggerSideFlipAck = shouldResumeAfterFlipRef.current;
+    const shouldPrimeManualFlipResumeAck = !shouldResumePlayback;
 
     pendingSideFlipAckRef.current = shouldTriggerSideFlipAck;
+    pendingManualFlipResumeAckRef.current = shouldPrimeManualFlipResumeAck;
     setIsFlipping(true);
     setIsPlaying(false);
     flipAnimation.setValue(0);
@@ -454,6 +467,7 @@ export default function App() {
     }).start(({ finished }) => {
       if (!finished) {
         pendingSideFlipAckRef.current = false;
+        pendingManualFlipResumeAckRef.current = false;
         setIsFlipping(false);
         return;
       }
@@ -484,6 +498,7 @@ export default function App() {
 
     const direction = selectedTrackIndex >= trackIndex ? 'forward' : 'backward';
 
+    pendingManualFlipResumeAckRef.current = false;
     shouldResumeAfterFlipRef.current = false;
     triggerQueueSeekAcknowledgement(direction);
     setTrackIndex(selectedTrackIndex);
@@ -656,6 +671,7 @@ export default function App() {
   };
 
   const handleScrubGrant = (event: GestureResponderEvent) => {
+    pendingManualFlipResumeAckRef.current = false;
     setIsScrubbing(true);
     scrubSettleAnimation.stopAnimation();
     scrubSettleAnimation.setValue(0);
