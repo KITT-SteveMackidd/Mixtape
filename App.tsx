@@ -32,6 +32,54 @@ function formatProgress(seconds: number) {
   return `${minutes}:${remainder}`;
 }
 
+type TransportButtonProps = {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+  variant?: 'default' | 'primary' | 'flip-ready';
+};
+
+function TransportButton({ label, onPress, disabled = false, variant = 'default' }: TransportButtonProps) {
+  const pressAnimation = useRef(new Animated.Value(0)).current;
+
+  const scale = pressAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0.97],
+  });
+  const translateY = pressAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 2],
+  });
+
+  const animatePress = (toValue: number, duration: number) => {
+    Animated.timing(pressAnimation, {
+      toValue,
+      duration,
+      easing: toValue === 1 ? Easing.out(Easing.quad) : Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <Animated.View style={[styles.transportButtonWrap, { transform: [{ translateY }, { scale }] }]}>
+      <Pressable
+        disabled={disabled}
+        onPress={onPress}
+        onPressIn={() => animatePress(1, 70)}
+        onPressOut={() => animatePress(0, 160)}
+        style={[
+          styles.transportButton,
+          variant === 'primary' && styles.transportPrimaryButton,
+          variant === 'flip-ready' && styles.transportFlipButtonReady,
+          disabled && styles.transportButtonDisabled,
+        ]}
+      >
+        <Text style={styles.transportText}>{label}</Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 export default function App() {
   const [sideIndex, setSideIndex] = useState(0);
   const [trackIndex, setTrackIndex] = useState(0);
@@ -469,36 +517,15 @@ export default function App() {
             ) : null}
 
             <View style={styles.transportRow}>
-              <Pressable disabled={isFlipping} onPress={handleRewindTrack} style={({ pressed }) => [styles.transportButton, isFlipping && styles.transportButtonDisabled, pressed && styles.transportButtonPressed]}>
-                <Text style={styles.transportText}>rew</Text>
-              </Pressable>
-              <Pressable
+              <TransportButton disabled={isFlipping} label="rew" onPress={handleRewindTrack} />
+              <TransportButton disabled={isFlipping} label={isPlaying ? 'pause' : 'play'} onPress={handleTogglePlayback} variant="primary" />
+              <TransportButton disabled={isFlipping} label="ff" onPress={handleAdvanceTrack} />
+              <TransportButton
                 disabled={isFlipping}
-                onPress={handleTogglePlayback}
-                style={({ pressed }) => [
-                  styles.transportButton,
-                  styles.transportPrimaryButton,
-                  isFlipping && styles.transportButtonDisabled,
-                  pressed && styles.transportButtonPressed,
-                ]}
-              >
-                <Text style={styles.transportText}>{isPlaying ? 'pause' : 'play'}</Text>
-              </Pressable>
-              <Pressable disabled={isFlipping} onPress={handleAdvanceTrack} style={({ pressed }) => [styles.transportButton, isFlipping && styles.transportButtonDisabled, pressed && styles.transportButtonPressed]}>
-                <Text style={styles.transportText}>ff</Text>
-              </Pressable>
-              <Pressable
-                disabled={isFlipping}
+                label={isFlipping ? 'flipping…' : isSideComplete ? `flip ${upcomingSide.label.toLowerCase()}` : 'flip'}
                 onPress={handleFlipSide}
-                style={({ pressed }) => [
-                  styles.transportButton,
-                  isSideComplete && styles.transportFlipButtonReady,
-                  isFlipping && styles.transportButtonDisabled,
-                  pressed && styles.transportButtonPressed,
-                ]}
-              >
-                <Text style={styles.transportText}>{isFlipping ? 'flipping…' : isSideComplete ? `flip ${upcomingSide.label.toLowerCase()}` : 'flip'}</Text>
-              </Pressable>
+                variant={isSideComplete ? 'flip-ready' : 'default'}
+              />
             </View>
           </Animated.View>
         </View>
@@ -841,8 +868,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 10,
   },
-  transportButton: {
+  transportButtonWrap: {
     flex: 1,
+  },
+  transportButton: {
     borderRadius: 14,
     backgroundColor: '#2a2118',
     paddingVertical: 12,
