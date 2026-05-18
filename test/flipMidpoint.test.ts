@@ -13,6 +13,16 @@ test('side badge and next up stay on the current side before the cassette midpoi
     }),
     0,
   );
+
+  assert.equal(
+    getFlipMidpointSideIndex({
+      sideIndex: 1,
+      isFlipping: true,
+      pendingFlipSideIndex: 0,
+      hasPassedFlipMidpoint: false,
+    }),
+    1,
+  );
 });
 
 test('side badge and next up swap to the pending side at the cassette midpoint', () => {
@@ -24,6 +34,16 @@ test('side badge and next up swap to the pending side at the cassette midpoint',
       hasPassedFlipMidpoint: true,
     }),
     1,
+  );
+
+  assert.equal(
+    getFlipMidpointSideIndex({
+      sideIndex: 1,
+      isFlipping: true,
+      pendingFlipSideIndex: 0,
+      hasPassedFlipMidpoint: true,
+    }),
+    0,
   );
 });
 
