@@ -43,7 +43,7 @@ test('queue header and reel caption stay on Side B until the flip settles on Sid
   );
 });
 
-test('queue header and reel caption move to Side B after the flip settles on Side B', () => {
+test('queue header and reel caption move to Side B once the flip settles on Side B', () => {
   assert.equal(
     getFlipCompletionSideIndex({
       sideIndex: 1,
@@ -54,7 +54,7 @@ test('queue header and reel caption move to Side B after the flip settles on Sid
   );
 });
 
-test('queue header and reel caption move to Side A after the flip settles on Side A', () => {
+test('queue header and reel caption move to Side A once the flip settles on Side A', () => {
   assert.equal(
     getFlipCompletionSideIndex({
       sideIndex: 0,

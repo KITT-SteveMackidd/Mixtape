@@ -17,7 +17,7 @@ test('now playing body copy stays on Side A until the flip settles on Side B', (
   assert.equal(bodyCopy.meta, 'Static Bloom • 04:08');
 });
 
-test('now playing body copy moves to Side B after the flip settles on Side B', () => {
+test('now playing body copy moves to Side B once the flip settles on Side B', () => {
   const bodyCopy = getNowPlayingBodyCopy({
     tape: seedTape,
     sideIndex: 1,
@@ -43,7 +43,7 @@ test('now playing body copy stays on Side B until the flip settles on Side A', (
   assert.equal(bodyCopy.meta, 'Frame Drift • 04:21');
 });
 
-test('now playing body copy moves to Side A after the flip settles on Side A', () => {
+test('now playing body copy moves to Side A once the flip settles on Side A', () => {
   const bodyCopy = getNowPlayingBodyCopy({
     tape: seedTape,
     sideIndex: 0,

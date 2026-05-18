@@ -23,7 +23,7 @@ test('queue eyebrow label and body tracks stay paired on Side A until the flip s
   assert.equal(rows[1]?.isActive, true);
 });
 
-test('queue eyebrow label and body tracks move to Side B together after the flip settles on Side B', () => {
+test('queue eyebrow label and body tracks move to Side B together once the flip settles on Side B', () => {
   const visibleSideIndex = getFlipCompletionSideIndex({
     sideIndex: 1,
     isFlipping: false,
@@ -59,7 +59,7 @@ test('queue eyebrow label and body tracks stay paired on Side B until the flip s
   assert.equal(rows[1]?.isActive, true);
 });
 
-test('queue eyebrow label and body tracks move to Side A together after the flip settles on Side A', () => {
+test('queue eyebrow label and body tracks move to Side A together once the flip settles on Side A', () => {
   const visibleSideIndex = getFlipCompletionSideIndex({
     sideIndex: 0,
     isFlipping: false,

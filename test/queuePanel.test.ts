@@ -38,7 +38,7 @@ test('queue panel stays on Side B until the flip settles on Side A', () => {
   assert.equal(queuePanel.rows[1]?.isActive, true);
 });
 
-test('queue panel moves to Side B after the flip settles on Side B', () => {
+test('queue panel moves to Side B once the flip settles on Side B', () => {
   const queuePanel = getQueuePanelProps({
     tape: seedTape,
     sideIndex: 1,
@@ -55,7 +55,7 @@ test('queue panel moves to Side B after the flip settles on Side B', () => {
   assert.equal(queuePanel.rows[1]?.isActive, true);
 });
 
-test('queue panel moves to Side A after the flip settles on Side A', () => {
+test('queue panel moves to Side A once the flip settles on Side A', () => {
   const queuePanel = getQueuePanelProps({
     tape: seedTape,
     sideIndex: 0,
