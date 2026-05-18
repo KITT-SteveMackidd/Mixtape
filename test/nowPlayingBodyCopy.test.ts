@@ -26,6 +26,8 @@ test('now playing body copy settles onto Side B after a forward flip completes',
 
   assert.equal(bodyCopy.title, 'Parking Lot Stars');
   assert.equal(bodyCopy.meta, 'Frame Drift • 04:21');
+  assert.notEqual(bodyCopy.title, 'Rearview');
+  assert.notEqual(bodyCopy.meta, 'Static Bloom • 04:08');
 });
 
 test('now playing body copy stays on Side B until a reverse flip completes', () => {
@@ -50,4 +52,6 @@ test('now playing body copy settles back onto Side A after a reverse flip comple
 
   assert.equal(bodyCopy.title, 'Rearview');
   assert.equal(bodyCopy.meta, 'Static Bloom • 04:08');
+  assert.notEqual(bodyCopy.title, 'Parking Lot Stars');
+  assert.notEqual(bodyCopy.meta, 'Frame Drift • 04:21');
 });
