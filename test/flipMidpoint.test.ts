@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { getFlipMidpointSideIndex } from '../src/utils/flipMidpoint.ts';
 
-test('side badge and next up stay on Side A while the flip is heading to Side B before the cassette midpoint', () => {
+test('side badge and next up stay on Side A until the flip reaches the cassette midpoint on the way to Side B', () => {
   assert.equal(
     getFlipMidpointSideIndex({
       sideIndex: 0,
@@ -15,7 +15,7 @@ test('side badge and next up stay on Side A while the flip is heading to Side B 
   );
 });
 
-test('side badge and next up stay on Side B while the flip is heading to Side A before the cassette midpoint', () => {
+test('side badge and next up stay on Side B until the flip reaches the cassette midpoint on the way to Side A', () => {
   assert.equal(
     getFlipMidpointSideIndex({
       sideIndex: 1,
