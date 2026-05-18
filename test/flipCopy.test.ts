@@ -43,7 +43,7 @@ test('flip copy stays locked to Side A during a reverse flip through the mid-fli
   );
 });
 
-test('flip copy falls back to the opposite side when no flip is pending', () => {
+test('flip copy falls back to Side B when Side A is showing and no flip is pending', () => {
   assert.equal(
     getFlipCopySideIndex({
       sideIndex: 0,
@@ -52,7 +52,9 @@ test('flip copy falls back to the opposite side when no flip is pending', () => 
     }),
     1,
   );
+});
 
+test('flip copy falls back to Side A when Side B is showing and no flip is pending', () => {
   assert.equal(
     getFlipCopySideIndex({
       sideIndex: 1,
