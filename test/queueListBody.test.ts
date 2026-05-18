@@ -4,7 +4,7 @@ import test from 'node:test';
 import { seedTape } from '../src/data/seedTape.ts';
 import { getQueueListRows } from '../src/utils/queueListBody.ts';
 
-test('queue list body keeps rendering the current side tracks until the active side changes', () => {
+test('queue list body follows the active side when no flip is pending', () => {
   const rows = getQueueListRows(seedTape.sides[0].tracks, 1);
 
   assert.deepEqual(
