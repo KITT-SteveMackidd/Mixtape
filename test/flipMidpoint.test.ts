@@ -27,7 +27,7 @@ test('side badge and next up stay on side B before the cassette midpoint during 
   );
 });
 
-test('side badge and next up swap to side B at the cassette midpoint during a forward flip', () => {
+test('side badge and next up move to side B at the cassette midpoint during a forward flip', () => {
   assert.equal(
     getFlipMidpointSideIndex({
       sideIndex: 0,
@@ -39,7 +39,7 @@ test('side badge and next up swap to side B at the cassette midpoint during a fo
   );
 });
 
-test('side badge and next up swap to side A at the cassette midpoint during a reverse flip', () => {
+test('side badge and next up move to side A at the cassette midpoint during a reverse flip', () => {
   assert.equal(
     getFlipMidpointSideIndex({
       sideIndex: 1,
