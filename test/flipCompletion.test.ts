@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { getFlipCompletionSideIndex } from '../src/utils/flipCompletion.ts';
 
-test('queue header and reel caption stay on the current side until the flip fully finishes', () => {
+test('queue header and reel caption stay on Side A until a forward flip fully finishes', () => {
   assert.equal(
     getFlipCompletionSideIndex({
       sideIndex: 0,
@@ -20,6 +20,26 @@ test('queue header and reel caption stay on the current side until the flip full
       pendingFlipSideIndex: 1,
     }),
     0,
+  );
+});
+
+test('queue header and reel caption stay on Side B until a reverse flip fully finishes', () => {
+  assert.equal(
+    getFlipCompletionSideIndex({
+      sideIndex: 1,
+      isFlipping: true,
+      pendingFlipSideIndex: 0,
+    }),
+    1,
+  );
+
+  assert.equal(
+    getFlipCompletionSideIndex({
+      sideIndex: 0,
+      isFlipping: true,
+      pendingFlipSideIndex: 0,
+    }),
+    1,
   );
 });
 
