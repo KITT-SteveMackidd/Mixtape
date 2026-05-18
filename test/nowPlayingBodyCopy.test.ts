@@ -4,7 +4,7 @@ import test from 'node:test';
 import { seedTape } from '../src/data/seedTape.ts';
 import { getNowPlayingBodyCopy } from '../src/utils/nowPlayingBodyCopy.ts';
 
-test('now playing body copy stays on Side A until a forward flip completes', () => {
+test('now playing body copy stays on Side A throughout a forward flip', () => {
   const bodyCopy = getNowPlayingBodyCopy({
     tape: seedTape,
     sideIndex: 1,
@@ -17,7 +17,7 @@ test('now playing body copy stays on Side A until a forward flip completes', () 
   assert.equal(bodyCopy.meta, 'Static Bloom • 04:08');
 });
 
-test('now playing body copy settles onto Side B after a forward flip completes', () => {
+test('now playing body copy settles onto Side B once a forward flip completes', () => {
   const bodyCopy = getNowPlayingBodyCopy({
     tape: seedTape,
     sideIndex: 1,
@@ -30,7 +30,7 @@ test('now playing body copy settles onto Side B after a forward flip completes',
   assert.notEqual(bodyCopy.meta, 'Static Bloom • 04:08');
 });
 
-test('now playing body copy stays on Side B until a reverse flip completes', () => {
+test('now playing body copy stays on Side B throughout a reverse flip', () => {
   const bodyCopy = getNowPlayingBodyCopy({
     tape: seedTape,
     sideIndex: 0,
@@ -43,7 +43,7 @@ test('now playing body copy stays on Side B until a reverse flip completes', () 
   assert.equal(bodyCopy.meta, 'Frame Drift • 04:21');
 });
 
-test('now playing body copy settles back onto Side A after a reverse flip completes', () => {
+test('now playing body copy settles back onto Side A once a reverse flip completes', () => {
   const bodyCopy = getNowPlayingBodyCopy({
     tape: seedTape,
     sideIndex: 0,
