@@ -49,7 +49,7 @@ describe('App now playing flip completion', () => {
     jest.useRealTimers();
   });
 
-  it('keeps the rendered title and meta on Side B until the flip settles', () => {
+  it('stays on Side B title and meta until the flip settles', () => {
     let renderer;
     act(() => {
       renderer = TestRenderer.create(React.createElement(App));
@@ -98,7 +98,7 @@ describe('App now playing flip completion', () => {
     expectTextPresent(root, 'flip');
   });
 
-  it('keeps the rendered title and meta on Side A until the flip settles', () => {
+  it('stays on Side A title and meta until the flip settles', () => {
     let renderer;
     act(() => {
       renderer = TestRenderer.create(React.createElement(App));
