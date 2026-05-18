@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { getFlipCopySideIndex } from '../src/utils/flipCopy.ts';
 
-test('flip copy stays on Side B while the flip is heading to Side B', () => {
+test('flip copy stays on Side B until the flip settles on Side B', () => {
   assert.equal(
     getFlipCopySideIndex({
       sideIndex: 0,
@@ -23,7 +23,7 @@ test('flip copy stays on Side B while the flip is heading to Side B', () => {
   );
 });
 
-test('flip copy stays on Side A while the flip is heading to Side A', () => {
+test('flip copy stays on Side A until the flip settles on Side A', () => {
   assert.equal(
     getFlipCopySideIndex({
       sideIndex: 1,
