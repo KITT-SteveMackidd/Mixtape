@@ -4,7 +4,7 @@ import test from 'node:test';
 import { seedTape } from '../src/data/seedTape.ts';
 import { getQueuePanelProps } from '../src/utils/queuePanel.ts';
 
-test('queue panel stays on Side A while the flip is heading to Side B', () => {
+test('queue panel stays on Side A until the flip settles on Side B', () => {
   const queuePanel = getQueuePanelProps({
     tape: seedTape,
     sideIndex: 1,
@@ -21,7 +21,7 @@ test('queue panel stays on Side A while the flip is heading to Side B', () => {
   assert.equal(queuePanel.rows[1]?.isActive, true);
 });
 
-test('queue panel stays on Side B while the flip is heading to Side A', () => {
+test('queue panel stays on Side B until the flip settles on Side A', () => {
   const queuePanel = getQueuePanelProps({
     tape: seedTape,
     sideIndex: 0,
@@ -38,7 +38,7 @@ test('queue panel stays on Side B while the flip is heading to Side A', () => {
   assert.equal(queuePanel.rows[1]?.isActive, true);
 });
 
-test('queue panel moves to Side B once the flip finishes on Side B', () => {
+test('queue panel moves to Side B after the flip settles on Side B', () => {
   const queuePanel = getQueuePanelProps({
     tape: seedTape,
     sideIndex: 1,
@@ -55,7 +55,7 @@ test('queue panel moves to Side B once the flip finishes on Side B', () => {
   assert.equal(queuePanel.rows[1]?.isActive, true);
 });
 
-test('queue panel moves to Side A once the flip finishes on Side A', () => {
+test('queue panel moves to Side A after the flip settles on Side A', () => {
   const queuePanel = getQueuePanelProps({
     tape: seedTape,
     sideIndex: 0,
