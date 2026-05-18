@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { getFlipCopySideIndex } from '../src/utils/flipCopy.ts';
 
-test('flip copy stays locked to Side B during a forward flip through the mid-flip timeout window', () => {
+test('flip copy stays locked to Side B throughout a forward flip', () => {
   assert.equal(
     getFlipCopySideIndex({
       sideIndex: 0,
@@ -23,7 +23,7 @@ test('flip copy stays locked to Side B during a forward flip through the mid-fli
   );
 });
 
-test('flip copy stays locked to Side A during a reverse flip through the mid-flip timeout window', () => {
+test('flip copy stays locked to Side A throughout a reverse flip', () => {
   assert.equal(
     getFlipCopySideIndex({
       sideIndex: 1,
