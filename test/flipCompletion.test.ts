@@ -23,7 +23,7 @@ test('queue header and reel caption stay on the current side until the flip full
   );
 });
 
-test('queue header and reel caption settle onto the new side once rotation is complete', () => {
+test('queue header and reel caption settle onto Side B once forward rotation is complete', () => {
   assert.equal(
     getFlipCompletionSideIndex({
       sideIndex: 1,
@@ -31,5 +31,16 @@ test('queue header and reel caption settle onto the new side once rotation is co
       pendingFlipSideIndex: null,
     }),
     1,
+  );
+});
+
+test('queue header and reel caption settle back onto Side A once reverse rotation is complete', () => {
+  assert.equal(
+    getFlipCompletionSideIndex({
+      sideIndex: 0,
+      isFlipping: false,
+      pendingFlipSideIndex: null,
+    }),
+    0,
   );
 });
