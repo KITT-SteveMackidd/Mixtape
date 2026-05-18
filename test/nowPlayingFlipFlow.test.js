@@ -27,7 +27,7 @@ function findPressableByText(root, value) {
   );
 }
 
-describe('App now playing flip flow', () => {
+describe('App now playing flip completion', () => {
   const originalTiming = Animated.timing;
 
   beforeEach(() => {
@@ -49,7 +49,7 @@ describe('App now playing flip flow', () => {
     jest.useRealTimers();
   });
 
-  it('keeps the rendered title and meta paired during a flip, then settles them together on the next side', () => {
+  it('keeps the rendered title and meta paired through forward flip completion, then settles them together on Side B', () => {
     let renderer;
     act(() => {
       renderer = TestRenderer.create(React.createElement(App));
@@ -98,7 +98,7 @@ describe('App now playing flip flow', () => {
     expectTextPresent(root, 'flip');
   });
 
-  it('keeps the rendered title and meta paired during a reverse flip, then settles them together on the prior side', () => {
+  it('keeps the rendered title and meta paired through reverse flip completion, then settles them together on Side A', () => {
     let renderer;
     act(() => {
       renderer = TestRenderer.create(React.createElement(App));
