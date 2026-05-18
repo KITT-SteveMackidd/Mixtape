@@ -38,7 +38,7 @@ test('queue panel keeps the Side B eyebrow and tracks paired until reverse flip 
   assert.equal(queuePanel.rows[1]?.isActive, true);
 });
 
-test('queue panel settles onto Side B after a forward flip completes', () => {
+test('queue panel settles onto Side B after forward flip completion', () => {
   const queuePanel = getQueuePanelProps({
     tape: seedTape,
     sideIndex: 1,
@@ -55,7 +55,7 @@ test('queue panel settles onto Side B after a forward flip completes', () => {
   assert.equal(queuePanel.rows[1]?.isActive, true);
 });
 
-test('queue panel settles back onto Side A after a reverse flip completes', () => {
+test('queue panel settles back onto Side A after reverse flip completion', () => {
   const queuePanel = getQueuePanelProps({
     tape: seedTape,
     sideIndex: 0,
