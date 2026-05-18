@@ -4,6 +4,12 @@ import test from 'node:test';
 import { seedTape } from '../src/data/seedTape.ts';
 import { getQueuePanelProps } from '../src/utils/queuePanel.ts';
 
+function getSeedQueuePanelInput(
+  input: Omit<Parameters<typeof getQueuePanelProps>[0], 'tape'>,
+): Omit<Parameters<typeof getQueuePanelProps>[0], 'tape'> {
+  return input;
+}
+
 function getSeedQueuePanel(
   input: Omit<Parameters<typeof getQueuePanelProps>[0], 'tape'>,
 ) {
@@ -30,12 +36,14 @@ function assertQueuePanel(
 }
 
 test('queue panel stays on Side A until the flip settles on Side B', () => {
-  const queuePanel = getSeedQueuePanel({
-    sideIndex: 1,
-    trackIndex: 1,
-    isFlipping: true,
-    pendingFlipSideIndex: 1,
-  });
+  const queuePanel = getSeedQueuePanel(
+    getSeedQueuePanelInput({
+      sideIndex: 1,
+      trackIndex: 1,
+      isFlipping: true,
+      pendingFlipSideIndex: 1,
+    }),
+  );
 
   assertQueuePanel(queuePanel, {
     eyebrow: 'Side A queue',
@@ -45,12 +53,14 @@ test('queue panel stays on Side A until the flip settles on Side B', () => {
 });
 
 test('queue panel stays on Side B until the flip settles on Side A', () => {
-  const queuePanel = getSeedQueuePanel({
-    sideIndex: 0,
-    trackIndex: 1,
-    isFlipping: true,
-    pendingFlipSideIndex: 0,
-  });
+  const queuePanel = getSeedQueuePanel(
+    getSeedQueuePanelInput({
+      sideIndex: 0,
+      trackIndex: 1,
+      isFlipping: true,
+      pendingFlipSideIndex: 0,
+    }),
+  );
 
   assertQueuePanel(queuePanel, {
     eyebrow: 'Side B queue',
@@ -60,12 +70,14 @@ test('queue panel stays on Side B until the flip settles on Side A', () => {
 });
 
 test('queue panel moves to Side B once the flip settles on Side B', () => {
-  const queuePanel = getSeedQueuePanel({
-    sideIndex: 1,
-    trackIndex: 1,
-    isFlipping: false,
-    pendingFlipSideIndex: null,
-  });
+  const queuePanel = getSeedQueuePanel(
+    getSeedQueuePanelInput({
+      sideIndex: 1,
+      trackIndex: 1,
+      isFlipping: false,
+      pendingFlipSideIndex: null,
+    }),
+  );
 
   assertQueuePanel(queuePanel, {
     eyebrow: 'Side B queue',
@@ -75,12 +87,14 @@ test('queue panel moves to Side B once the flip settles on Side B', () => {
 });
 
 test('queue panel moves to Side A once the flip settles on Side A', () => {
-  const queuePanel = getSeedQueuePanel({
-    sideIndex: 0,
-    trackIndex: 1,
-    isFlipping: false,
-    pendingFlipSideIndex: null,
-  });
+  const queuePanel = getSeedQueuePanel(
+    getSeedQueuePanelInput({
+      sideIndex: 0,
+      trackIndex: 1,
+      isFlipping: false,
+      pendingFlipSideIndex: null,
+    }),
+  );
 
   assertQueuePanel(queuePanel, {
     eyebrow: 'Side A queue',
