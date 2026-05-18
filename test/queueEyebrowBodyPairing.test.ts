@@ -41,7 +41,7 @@ test('queue eyebrow label and body tracks settle onto Side B together after forw
   assert.equal(rows[1]?.isActive, true);
 });
 
-test('queue eyebrow label and body tracks stay paired on Side B until flip back completion finishes', () => {
+test('queue eyebrow label and body tracks stay paired on Side B until reverse flip completion finishes', () => {
   const visibleSideIndex = getFlipCompletionSideIndex({
     sideIndex: 0,
     isFlipping: true,
