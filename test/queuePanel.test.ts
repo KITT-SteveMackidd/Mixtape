@@ -4,7 +4,7 @@ import test from 'node:test';
 import { seedTape } from '../src/data/seedTape.ts';
 import { getQueuePanelProps } from '../src/utils/queuePanel.ts';
 
-test('queue panel keeps the Side A eyebrow and tracks paired until flip completion finishes', () => {
+test('queue panel keeps the Side A eyebrow and tracks paired until forward flip completion finishes', () => {
   const queuePanel = getQueuePanelProps({
     tape: seedTape,
     sideIndex: 1,
@@ -21,7 +21,7 @@ test('queue panel keeps the Side A eyebrow and tracks paired until flip completi
   assert.equal(queuePanel.rows[1]?.isActive, true);
 });
 
-test('queue panel keeps the Side B eyebrow and tracks paired until flip back completion finishes', () => {
+test('queue panel keeps the Side B eyebrow and tracks paired until reverse flip completion finishes', () => {
   const queuePanel = getQueuePanelProps({
     tape: seedTape,
     sideIndex: 0,
