@@ -5,7 +5,7 @@ import { seedTape } from '../src/data/seedTape.ts';
 import { getFlipCompletionSideIndex } from '../src/utils/flipCompletion.ts';
 import { getQueueListRows } from '../src/utils/queueListBody.ts';
 
-test('queue eyebrow label and body tracks stay paired on Side A throughout a forward flip', () => {
+test('queue eyebrow label and body tracks stay paired on Side A while the flip is heading to Side B', () => {
   const visibleSideIndex = getFlipCompletionSideIndex({
     sideIndex: 1,
     isFlipping: true,
@@ -23,7 +23,7 @@ test('queue eyebrow label and body tracks stay paired on Side A throughout a for
   assert.equal(rows[1]?.isActive, true);
 });
 
-test('queue eyebrow label and body tracks land on Side B together once a forward flip completes', () => {
+test('queue eyebrow label and body tracks move to Side B together once the flip finishes on Side B', () => {
   const visibleSideIndex = getFlipCompletionSideIndex({
     sideIndex: 1,
     isFlipping: false,
@@ -41,7 +41,7 @@ test('queue eyebrow label and body tracks land on Side B together once a forward
   assert.equal(rows[1]?.isActive, true);
 });
 
-test('queue eyebrow label and body tracks stay paired on Side B throughout a reverse flip', () => {
+test('queue eyebrow label and body tracks stay paired on Side B while the flip is heading to Side A', () => {
   const visibleSideIndex = getFlipCompletionSideIndex({
     sideIndex: 0,
     isFlipping: true,
@@ -59,7 +59,7 @@ test('queue eyebrow label and body tracks stay paired on Side B throughout a rev
   assert.equal(rows[1]?.isActive, true);
 });
 
-test('queue eyebrow label and body tracks land back on Side A together once a reverse flip completes', () => {
+test('queue eyebrow label and body tracks move to Side A together once the flip finishes on Side A', () => {
   const visibleSideIndex = getFlipCompletionSideIndex({
     sideIndex: 0,
     isFlipping: false,
