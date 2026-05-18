@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { getFlipCompletionSideIndex } from '../src/utils/flipCompletion.ts';
 
-test('queue header and reel caption stay on Side A until forward flip completion finishes', () => {
+test('queue header and reel caption stay on Side A throughout a forward flip', () => {
   assert.equal(
     getFlipCompletionSideIndex({
       sideIndex: 0,
@@ -23,7 +23,7 @@ test('queue header and reel caption stay on Side A until forward flip completion
   );
 });
 
-test('queue header and reel caption stay on Side B until reverse flip completion finishes', () => {
+test('queue header and reel caption stay on Side B throughout a reverse flip', () => {
   assert.equal(
     getFlipCompletionSideIndex({
       sideIndex: 1,
@@ -43,7 +43,7 @@ test('queue header and reel caption stay on Side B until reverse flip completion
   );
 });
 
-test('queue header and reel caption settle onto Side B after forward flip completion', () => {
+test('queue header and reel caption lands on Side B once a forward flip completes', () => {
   assert.equal(
     getFlipCompletionSideIndex({
       sideIndex: 1,
@@ -54,7 +54,7 @@ test('queue header and reel caption settle onto Side B after forward flip comple
   );
 });
 
-test('queue header and reel caption settle back onto Side A after reverse flip completion', () => {
+test('queue header and reel caption lands back on Side A once a reverse flip completes', () => {
   assert.equal(
     getFlipCompletionSideIndex({
       sideIndex: 0,
