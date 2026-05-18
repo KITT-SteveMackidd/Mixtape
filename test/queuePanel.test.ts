@@ -4,6 +4,15 @@ import test from 'node:test';
 import { seedTape } from '../src/data/seedTape.ts';
 import { getQueuePanelProps } from '../src/utils/queuePanel.ts';
 
+function getSeedQueuePanel(
+  input: Omit<Parameters<typeof getQueuePanelProps>[0], 'tape'>,
+) {
+  return getQueuePanelProps({
+    tape: seedTape,
+    ...input,
+  });
+}
+
 function assertQueuePanel(
   queuePanel: ReturnType<typeof getQueuePanelProps>,
   expected: {
@@ -21,8 +30,7 @@ function assertQueuePanel(
 }
 
 test('queue panel stays on Side A until the flip settles on Side B', () => {
-  const queuePanel = getQueuePanelProps({
-    tape: seedTape,
+  const queuePanel = getSeedQueuePanel({
     sideIndex: 1,
     trackIndex: 1,
     isFlipping: true,
@@ -37,8 +45,7 @@ test('queue panel stays on Side A until the flip settles on Side B', () => {
 });
 
 test('queue panel stays on Side B until the flip settles on Side A', () => {
-  const queuePanel = getQueuePanelProps({
-    tape: seedTape,
+  const queuePanel = getSeedQueuePanel({
     sideIndex: 0,
     trackIndex: 1,
     isFlipping: true,
@@ -53,8 +60,7 @@ test('queue panel stays on Side B until the flip settles on Side A', () => {
 });
 
 test('queue panel moves to Side B once the flip settles on Side B', () => {
-  const queuePanel = getQueuePanelProps({
-    tape: seedTape,
+  const queuePanel = getSeedQueuePanel({
     sideIndex: 1,
     trackIndex: 1,
     isFlipping: false,
@@ -69,8 +75,7 @@ test('queue panel moves to Side B once the flip settles on Side B', () => {
 });
 
 test('queue panel moves to Side A once the flip settles on Side A', () => {
-  const queuePanel = getQueuePanelProps({
-    tape: seedTape,
+  const queuePanel = getSeedQueuePanel({
     sideIndex: 0,
     trackIndex: 1,
     isFlipping: false,
