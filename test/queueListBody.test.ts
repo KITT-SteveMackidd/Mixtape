@@ -4,6 +4,15 @@ import test from 'node:test';
 import { seedTape } from '../src/data/seedTape.ts';
 import { getQueueListRows } from '../src/utils/queueListBody.ts';
 
+function getSeedQueueListRows(
+  input: {
+    sideIndex: number;
+    activeRowIndex: number;
+  },
+) {
+  return getQueueListRows(seedTape.sides[input.sideIndex].tracks, input.activeRowIndex);
+}
+
 function assertQueueListRows(
   rows: ReturnType<typeof getQueueListRows>,
   expected: {
@@ -24,7 +33,10 @@ function assertQueueListRows(
 }
 
 test('queue list body follows the active side when no flip is pending', () => {
-  const rows = getQueueListRows(seedTape.sides[0].tracks, 1);
+  const rows = getSeedQueueListRows({
+    sideIndex: 0,
+    activeRowIndex: 1,
+  });
 
   assertQueueListRows(rows, {
     rowIds: ['A1', 'A2', 'A3'],
