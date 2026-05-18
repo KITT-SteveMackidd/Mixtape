@@ -6,18 +6,18 @@ import {
   getPausedBoundaryResumeAckForInactivePlayback,
 } from '../src/utils/pausedBoundaryResume.ts';
 
-test('transport skip paths only prime resume ack while paused', () => {
+test('transport skip paths only prime forward or backward resume ack while paused', () => {
   assert.equal(getPausedBoundaryResumeAckForInactivePlayback({ isPlaying: false, direction: 'forward' }), 'forward');
   assert.equal(getPausedBoundaryResumeAckForInactivePlayback({ isPlaying: false, direction: 'backward' }), 'backward');
   assert.equal(getPausedBoundaryResumeAckForInactivePlayback({ isPlaying: true, direction: 'forward' }), null);
 });
 
-test('scrub release only primes boundary resume ack when paused at the tape edge', () => {
+test('scrub release only primes forward resume ack when paused at the tape edge', () => {
   assert.equal(getPausedBoundaryResumeAckForInactivePlayback({ isPlaying: false, direction: 'forward' }), 'forward');
   assert.equal(getPausedBoundaryResumeAckForInactivePlayback({ isPlaying: true, direction: 'forward' }), null);
 });
 
-test('queue selection and flip resume consume the shared paused boundary rule', () => {
+test('queue selection and flip completion resume consume the shared forward or backward paused-boundary rule', () => {
   assert.equal(
     consumePausedBoundaryResumeAck({
       isPausedAtTrackBoundary: true,
