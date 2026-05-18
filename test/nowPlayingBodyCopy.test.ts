@@ -4,23 +4,28 @@ import test from 'node:test';
 import { seedTape } from '../src/data/seedTape.ts';
 import { getNowPlayingBodyCopy } from '../src/utils/nowPlayingBodyCopy.ts';
 
-function getNowPlayingBodyCopyInput(
-  input: Parameters<typeof getNowPlayingBodyCopy>[0],
-): Parameters<typeof getNowPlayingBodyCopy>[0] {
+function getSeedNowPlayingBodyCopyInput(
+  input: Omit<Parameters<typeof getNowPlayingBodyCopy>[0], 'tape'>,
+): Omit<Parameters<typeof getNowPlayingBodyCopy>[0], 'tape'> {
   return input;
 }
 
 function assertNowPlayingBodyCopy(
-  input: Parameters<typeof getNowPlayingBodyCopy>[0],
+  input: Omit<Parameters<typeof getNowPlayingBodyCopy>[0], 'tape'>,
   expected: ReturnType<typeof getNowPlayingBodyCopy>,
 ) {
-  assert.deepEqual(getNowPlayingBodyCopy(input), expected);
+  assert.deepEqual(
+    getNowPlayingBodyCopy({
+      tape: seedTape,
+      ...input,
+    }),
+    expected,
+  );
 }
 
 test('now playing body copy stays on Side A until the flip settles on Side B', () => {
   assertNowPlayingBodyCopy(
-    getNowPlayingBodyCopyInput({
-      tape: seedTape,
+    getSeedNowPlayingBodyCopyInput({
       sideIndex: 1,
       trackIndex: 1,
       isFlipping: true,
@@ -35,8 +40,7 @@ test('now playing body copy stays on Side A until the flip settles on Side B', (
 
 test('now playing body copy moves to Side B once the flip settles on Side B', () => {
   assertNowPlayingBodyCopy(
-    getNowPlayingBodyCopyInput({
-      tape: seedTape,
+    getSeedNowPlayingBodyCopyInput({
       sideIndex: 1,
       trackIndex: 1,
     }),
@@ -49,8 +53,7 @@ test('now playing body copy moves to Side B once the flip settles on Side B', ()
 
 test('now playing body copy stays on Side B until the flip settles on Side A', () => {
   assertNowPlayingBodyCopy(
-    getNowPlayingBodyCopyInput({
-      tape: seedTape,
+    getSeedNowPlayingBodyCopyInput({
       sideIndex: 0,
       trackIndex: 1,
       isFlipping: true,
@@ -65,8 +68,7 @@ test('now playing body copy stays on Side B until the flip settles on Side A', (
 
 test('now playing body copy moves to Side A once the flip settles on Side A', () => {
   assertNowPlayingBodyCopy(
-    getNowPlayingBodyCopyInput({
-      tape: seedTape,
+    getSeedNowPlayingBodyCopyInput({
       sideIndex: 0,
       trackIndex: 1,
     }),
