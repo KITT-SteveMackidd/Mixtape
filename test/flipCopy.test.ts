@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { getFlipCopySideIndex } from '../src/utils/flipCopy.ts';
+import { getFlipCopySideIndex } from '../src/utils/flipCopy';
 
 function getFlipCopyInput(
   input: Parameters<typeof getFlipCopySideIndex>[0],

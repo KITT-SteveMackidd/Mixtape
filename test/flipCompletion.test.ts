@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { getFlipCompletionSideIndex } from '../src/utils/flipCompletion.ts';
+import { getFlipCompletionSideIndex } from '../src/utils/flipCompletion';
 
 function getFlipCompletionInput(
   input: Parameters<typeof getFlipCompletionSideIndex>[0],

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { seedTape } from '../src/data/seedTape.ts';
-import { getQueuePanelProps } from '../src/utils/queuePanel.ts';
+import { seedTape } from '../src/data/seedTape';
+import { getQueuePanelProps } from '../src/utils/queuePanel';
 
 function getSeedQueuePanelInput(
   input: Omit<Parameters<typeof getQueuePanelProps>[0], 'tape'>,

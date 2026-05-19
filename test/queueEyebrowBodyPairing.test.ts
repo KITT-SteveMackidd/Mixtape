@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { seedTape } from '../src/data/seedTape.ts';
-import { getFlipCompletionSideIndex } from '../src/utils/flipCompletion.ts';
-import { getQueueListRows } from '../src/utils/queueListBody.ts';
+import { seedTape } from '../src/data/seedTape';
+import { getFlipCompletionSideIndex } from '../src/utils/flipCompletion';
+import { getQueueListRows } from '../src/utils/queueListBody';
 
 function getQueueEyebrowBodyPairingInput(
   input: Parameters<typeof getFlipCompletionSideIndex>[0],

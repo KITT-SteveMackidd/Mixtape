@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { getFlipMidpointSideIndex } from '../src/utils/flipMidpoint.ts';
+import { getFlipMidpointSideIndex } from '../src/utils/flipMidpoint';
 
 function getFlipMidpointInput(
   input: Parameters<typeof getFlipMidpointSideIndex>[0],

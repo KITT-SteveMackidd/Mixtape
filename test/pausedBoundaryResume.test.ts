@@ -4,7 +4,7 @@ import test from 'node:test';
 import {
   consumePausedBoundaryResumeAck,
   getPausedBoundaryResumeAckForInactivePlayback,
-} from '../src/utils/pausedBoundaryResume.ts';
+} from '../src/utils/pausedBoundaryResume';
 
 test('transport skip paths only prime a paused-boundary resume ack when playback is inactive', () => {
   assert.equal(getPausedBoundaryResumeAckForInactivePlayback({ isPlaying: false, direction: 'forward' }), 'forward');

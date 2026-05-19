@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { seedTape } from '../src/data/seedTape.ts';
-import { getQueueListRows } from '../src/utils/queueListBody.ts';
+import { seedTape } from '../src/data/seedTape';
+import { getQueueListRows } from '../src/utils/queueListBody';
 
 function getSeedQueueListRows(
   input: {

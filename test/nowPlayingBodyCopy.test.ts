@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { seedTape } from '../src/data/seedTape.ts';
-import { getNowPlayingBodyCopy } from '../src/utils/nowPlayingBodyCopy.ts';
+import { seedTape } from '../src/data/seedTape';
+import { getNowPlayingBodyCopy } from '../src/utils/nowPlayingBodyCopy';
 
 function getSeedNowPlayingBodyCopyInput(
   input: Omit<Parameters<typeof getNowPlayingBodyCopy>[0], 'tape'>,
