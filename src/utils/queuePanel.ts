@@ -1,6 +1,6 @@
-import type { Tape } from '../data/seedTape.ts';
-import { getFlipCompletionSideIndex } from './flipCompletion.ts';
-import { getQueueListRows } from './queueListBody.ts';
+import type { Tape } from '../data/seedTape';
+import { getFlipCompletionSideIndex } from './flipCompletion';
+import { getQueueListRows } from './queueListBody';
 
 export function getQueuePanelProps({
   tape,

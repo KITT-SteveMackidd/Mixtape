@@ -1,5 +1,5 @@
-import type { Tape } from '../data/seedTape.ts';
-import { getFlipCompletionSideIndex } from './flipCompletion.ts';
+import type { Tape } from '../data/seedTape';
+import { getFlipCompletionSideIndex } from './flipCompletion';
 
 export function getNowPlayingBodyCopy({
   tape,
