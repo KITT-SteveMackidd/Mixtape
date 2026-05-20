@@ -1,1036 +1,391 @@
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
-  Animated,
-  Easing,
-  GestureResponderEvent,
-  LayoutChangeEvent,
   Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
+  TextInput,
   View,
 } from 'react-native';
-import { seedTape } from './src/data/seedTape';
-import {
-  consumePausedBoundaryResumeAck as resolvePausedBoundaryResumeAck,
-  getPausedBoundaryResumeAckForInactivePlayback,
-} from './src/utils/pausedBoundaryResume';
-import { getFlipCompletionSideIndex } from './src/utils/flipCompletion';
-import { getFlipCopySideIndex } from './src/utils/flipCopy';
-import { getFlipMidpointSideIndex } from './src/utils/flipMidpoint';
-import { getNowPlayingBodyCopy } from './src/utils/nowPlayingBodyCopy';
-import { getQueuePanelProps } from './src/utils/queuePanel';
 
-const TICK_MS = 1000;
+type TabKey = 'tapes' | 'create' | 'profile';
+type ServiceKey = 'spotify' | 'apple' | 'tidal';
+type MoodKey = 'Late Night' | 'Road Trip' | 'Soft Launch' | 'After Hours';
 
-function parseDuration(duration: string) {
-  const [minutes, seconds] = duration.split(':').map(Number);
-
-  return minutes * 60 + seconds;
-}
-
-function formatProgress(seconds: number) {
-  const safeSeconds = Math.max(0, seconds);
-  const minutes = Math.floor(safeSeconds / 60)
-    .toString()
-    .padStart(2, '0');
-  const remainder = (safeSeconds % 60).toString().padStart(2, '0');
-
-  return `${minutes}:${remainder}`;
-}
-
-type TransportButtonProps = {
-  label: string;
-  onPress: () => void;
-  disabled?: boolean;
-  variant?: 'default' | 'primary' | 'flip-ready';
-  onPressIn?: () => void;
-  ledOpacity?: Animated.AnimatedInterpolation<number> | Animated.Value;
+type Service = {
+  key: ServiceKey;
+  name: string;
+  accent: string;
+  description: string;
+  connected: boolean;
 };
 
-function TransportButton({ label, onPress, disabled = false, variant = 'default', onPressIn, ledOpacity }: TransportButtonProps) {
-  const pressAnimation = useRef(new Animated.Value(0)).current;
+type Track = {
+  id: string;
+  title: string;
+  artist: string;
+  service: ServiceKey;
+  duration: string;
+  energy: string;
+};
 
-  const scale = pressAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 0.97],
-  });
-  const translateY = pressAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 2],
-  });
+type Tape = {
+  id: string;
+  title: string;
+  subtitle: string;
+  service: string;
+  trackCount: number;
+  duration: string;
+  gradient: [string, string];
+};
 
-  const animatePress = (toValue: number, duration: number) => {
-    Animated.timing(pressAnimation, {
-      toValue,
-      duration,
-      easing: toValue === 1 ? Easing.out(Easing.quad) : Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  };
+const servicesSeed: Service[] = [
+  {
+    key: 'spotify',
+    name: 'Spotify',
+    accent: '#1ED760',
+    description: 'Best for discovery, blends, and fast playlist import.',
+    connected: true,
+  },
+  {
+    key: 'apple',
+    name: 'Apple Music',
+    accent: '#FA2D48',
+    description: 'High fidelity catalog with tight iPhone ecosystem support.',
+    connected: false,
+  },
+  {
+    key: 'tidal',
+    name: 'TIDAL',
+    accent: '#7C5CFF',
+    description: 'Editorial picks and premium listening for detail-first users.',
+    connected: false,
+  },
+];
 
-  return (
-    <Animated.View style={[styles.transportButtonWrap, { transform: [{ translateY }, { scale }] }]}>
-      <Pressable
-        disabled={disabled}
-        onPress={onPress}
-        onPressIn={() => {
-          onPressIn?.();
-          animatePress(1, 70);
-        }}
-        onPressOut={() => animatePress(0, 160)}
-        style={[
-          styles.transportButton,
-          variant === 'primary' && styles.transportPrimaryButton,
-          variant === 'flip-ready' && styles.transportFlipButtonReady,
-          disabled && styles.transportButtonDisabled,
-        ]}
-      >
-        {ledOpacity ? <Animated.View pointerEvents="none" style={[styles.transportButtonLed, { opacity: ledOpacity }]} /> : null}
-        <Text style={styles.transportText}>{label}</Text>
-      </Pressable>
-    </Animated.View>
-  );
-}
+const tapesSeed: Tape[] = [
+  {
+    id: 'tape-1',
+    title: 'Neon Afterglow',
+    subtitle: 'A glossy night-drive mix built from saved likes and recent repeats.',
+    service: 'Spotify',
+    trackCount: 12,
+    duration: '43 min',
+    gradient: ['#FD6B2F', '#A63DFF'],
+  },
+  {
+    id: 'tape-2',
+    title: 'Sunday in Silver',
+    subtitle: 'Warm R&B, indie soul, and low-stakes optimism for slow mornings.',
+    service: 'Apple Music',
+    trackCount: 9,
+    duration: '31 min',
+    gradient: ['#3CC8FF', '#1A5CFF'],
+  },
+  {
+    id: 'tape-3',
+    title: 'Blue Room Draft',
+    subtitle: 'A tighter cut aimed at late-night headphones and zero skips.',
+    service: 'TIDAL',
+    trackCount: 14,
+    duration: '52 min',
+    gradient: ['#121212', '#5B5B5B'],
+  },
+];
+
+const discoveryTracks: Track[] = [
+  { id: '1', title: 'Midnight Sender', artist: 'NOVA STATIC', service: 'spotify', duration: '3:42', energy: 'Velvet synth' },
+  { id: '2', title: 'Summer Receiver', artist: 'Mika Vale', service: 'apple', duration: '4:08', energy: 'Bright pop' },
+  { id: '3', title: 'Soft Focus', artist: 'Juno Atlas', service: 'tidal', duration: '2:58', energy: 'Alt-R&B' },
+  { id: '4', title: 'Corner Booth', artist: 'The Night Guests', service: 'spotify', duration: '3:25', energy: 'Indie groove' },
+  { id: '5', title: 'Glass Hearts', artist: 'Avery Monroe', service: 'apple', duration: '3:54', energy: 'Slow burn' },
+  { id: '6', title: 'Signal Fade', artist: 'Hotel Fiction', service: 'tidal', duration: '4:11', energy: 'Cinematic' },
+];
+
+const moods: MoodKey[] = ['Late Night', 'Road Trip', 'Soft Launch', 'After Hours'];
+
+const serviceLabel = (key: ServiceKey) => {
+  if (key === 'spotify') return 'Spotify';
+  if (key === 'apple') return 'Apple Music';
+  return 'TIDAL';
+};
 
 export default function App() {
-  const [sideIndex, setSideIndex] = useState(0);
-  const [trackIndex, setTrackIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [progressRailWidth, setProgressRailWidth] = useState(0);
-  const [isScrubbing, setIsScrubbing] = useState(false);
-  const [isSideComplete, setIsSideComplete] = useState(false);
-  const [isFlipping, setIsFlipping] = useState(false);
-  const [pendingFlipSideIndex, setPendingFlipSideIndex] = useState<number | null>(null);
-  const [hasPassedFlipMidpoint, setHasPassedFlipMidpoint] = useState(false);
-  const shouldResumeAfterFlipRef = useRef(false);
-  const flipTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const reelSpin = useRef(new Animated.Value(0)).current;
-  const progressAnimation = useRef(new Animated.Value(0)).current;
-  const scrubGrabAnimation = useRef(new Animated.Value(0)).current;
-  const scrubSettleAnimation = useRef(new Animated.Value(0)).current;
-  const reelSettleAnimation = useRef(new Animated.Value(0)).current;
-  const elapsedPulseAnimation = useRef(new Animated.Value(0)).current;
-  const seekFlashAnimation = useRef(new Animated.Value(0)).current;
-  const bridgeShimmerAnimation = useRef(new Animated.Value(0)).current;
-  const rewindLedAnimation = useRef(new Animated.Value(0)).current;
-  const advanceLedAnimation = useRef(new Animated.Value(0)).current;
-  const flipAnimation = useRef(new Animated.Value(0)).current;
-  const tensionAnimation = useRef(new Animated.Value(0)).current;
-  const headSettleX = useRef(new Animated.Value(0)).current;
-  const headSettleY = useRef(new Animated.Value(0)).current;
-  const hasMountedRef = useRef(false);
-  const previousTrackRef = useRef({ sideIndex: 0, trackIndex: 0 });
-  const pendingAutoAdvanceAckRef = useRef(false);
-  const pendingSideFlipAckRef = useRef(false);
-  const pausedBoundaryResumeAckRef = useRef<'backward' | 'forward' | null>(null);
-  const scrubRatioRef = useRef(0);
-  const scrubDirectionRef = useRef<'backward' | 'forward'>('forward');
+  const [activeTab, setActiveTab] = useState<TabKey>('tapes');
+  const [services, setServices] = useState<Service[]>(servicesSeed);
+  const [selectedService, setSelectedService] = useState<ServiceKey>('spotify');
+  const [selectedMood, setSelectedMood] = useState<MoodKey>('Late Night');
+  const [mixtapeTitle, setMixtapeTitle] = useState('Summer Exit Tape');
+  const [selectedTrackIds, setSelectedTrackIds] = useState<string[]>(['1', '3', '4']);
+  const [smartOrderingEnabled, setSmartOrderingEnabled] = useState(true);
 
-  const activeSide = seedTape.sides[sideIndex];
-  const flipMidpointSide = seedTape.sides[
-    getFlipMidpointSideIndex({
-      sideIndex,
-      isFlipping,
-      pendingFlipSideIndex,
-      hasPassedFlipMidpoint,
-    })
-  ];
-  const upcomingSide = seedTape.sides[sideIndex === 0 ? 1 : 0];
-  const flipCopySide = seedTape.sides[
-    getFlipCopySideIndex({
-      sideIndex,
-      isFlipping,
-      pendingFlipSideIndex,
-    })
-  ];
-  const flipCompletionSide = seedTape.sides[
-    getFlipCompletionSideIndex({
-      sideIndex,
-      isFlipping,
-      pendingFlipSideIndex,
-    })
-  ];
-  const queuePanel = getQueuePanelProps({
-    tape: seedTape,
-    sideIndex,
-    trackIndex,
-    isFlipping,
-    pendingFlipSideIndex,
-  });
-  const nowPlayingBodyCopy = getNowPlayingBodyCopy({
-    tape: seedTape,
-    sideIndex,
-    trackIndex,
-    isFlipping,
-    pendingFlipSideIndex,
-  });
-  const featuredTrack = activeSide.tracks[trackIndex];
-  const flipMidpointNextTrack = flipMidpointSide.tracks[trackIndex + 1] ?? null;
-  const featuredTrackDuration = useMemo(() => parseDuration(featuredTrack.duration), [featuredTrack.duration]);
-  const progressRatio = elapsedSeconds / featuredTrackDuration;
-  const boundedProgressRatio = Math.min(1, Math.max(0, progressRatio || 0));
-  const reelRotation = reelSpin.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
-  const reverseReelRotation = reelSpin.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '-360deg'],
-  });
-  const animatedProgressWidth = progressAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['6%', '100%'],
-  });
-  const flipRotation = flipAnimation.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: ['0deg', '90deg', '180deg'],
-  });
-  const flipScale = flipAnimation.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [1, 0.92, 1],
-  });
-  const flipOverlayOpacity = flipAnimation.interpolate({
-    inputRange: [0, 0.15, 0.5, 0.85, 1],
-    outputRange: [0, 0.5, 0.85, 0.5, 0],
-  });
-  const leftReelTensionScale = tensionAnimation.interpolate({
-    inputRange: [0, 0.45, 1],
-    outputRange: [1, 0.95, 1],
-  });
-  const rightReelTensionScale = tensionAnimation.interpolate({
-    inputRange: [0, 0.45, 1],
-    outputRange: [1, 1.08, 1],
-  });
-  const tapeLineTensionScale = tensionAnimation.interpolate({
-    inputRange: [0, 0.45, 1],
-    outputRange: [1, 0.9, 1],
-  });
-  const tapeLineTensionOpacity = tensionAnimation.interpolate({
-    inputRange: [0, 0.45, 1],
-    outputRange: [0.6, 1, 0.6],
-  });
-  const tapeBridgeTensionShift = tensionAnimation.interpolate({
-    inputRange: [0, 0.45, 1],
-    outputRange: [0, 4, 0],
-  });
-  const headSettleTranslateX = headSettleX;
-  const headSettleTranslateY = headSettleY;
-  const scrubThumbScale = scrubGrabAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 1.12],
-  });
-  const scrubThumbTranslateY = scrubGrabAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 1],
-  });
-  const scrubThumbSettleX = scrubSettleAnimation.interpolate({
-    inputRange: [-1, -0.42, 0, 0.42, 1],
-    outputRange: [0, -2.5, 0, 2.5, 0],
-  });
-  const leftReelSettleScale = reelSettleAnimation.interpolate({
-    inputRange: [-1, -0.45, 0, 0.45, 1],
-    outputRange: [1, 1.018, 1, 0.988, 1],
-  });
-  const rightReelSettleScale = reelSettleAnimation.interpolate({
-    inputRange: [-1, -0.45, 0, 0.45, 1],
-    outputRange: [1, 0.988, 1, 1.018, 1],
-  });
-  const leftReelSettleTranslateY = reelSettleAnimation.interpolate({
-    inputRange: [-1, -0.45, 0, 0.45, 1],
-    outputRange: [0, 0.8, 0, -0.8, 0],
-  });
-  const rightReelSettleTranslateY = reelSettleAnimation.interpolate({
-    inputRange: [-1, -0.45, 0, 0.45, 1],
-    outputRange: [0, -0.8, 0, 0.8, 0],
-  });
-  const elapsedPulseScale = elapsedPulseAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 1.05],
-  });
-  const seekFlashOpacity = seekFlashAnimation.interpolate({
-    inputRange: [0, 0.2, 0.7, 1],
-    outputRange: [0, 0.14, 0.08, 0],
-  });
-  const seekFlashTranslateX = seekFlashAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-24, 20],
-  });
-  const bridgeShimmerOpacity = bridgeShimmerAnimation.interpolate({
-    inputRange: [0, 0.18, 0.72, 1],
-    outputRange: [0, 0.12, 0.07, 0],
-  });
-  const bridgeShimmerTranslateX = bridgeShimmerAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: scrubDirectionRef.current === 'forward' ? [-18, 22] : [18, -22],
-  });
-  const rewindLedOpacity = rewindLedAnimation.interpolate({
-    inputRange: [0, 0.14, 0.48, 1],
-    outputRange: [0.18, 1, 0.34, 0.12],
-  });
-  const advanceLedOpacity = advanceLedAnimation.interpolate({
-    inputRange: [0, 0.14, 0.48, 1],
-    outputRange: [0.18, 1, 0.34, 0.12],
-  });
+  const selectedTracks = useMemo(
+    () => discoveryTracks.filter((track) => selectedTrackIds.includes(track.id)),
+    [selectedTrackIds],
+  );
 
-  useEffect(() => {
-    if (!isPlaying) {
-      return;
-    }
+  const connectedCount = services.filter((service) => service.connected).length;
+  const filteredTracks = discoveryTracks.filter((track) => track.service === selectedService);
+  const selectedServiceCard = services.find((service) => service.key === selectedService) ?? services[0];
 
-    const timer = setInterval(() => {
-      setElapsedSeconds((currentElapsed) => {
-        if (currentElapsed + 1 >= featuredTrackDuration) {
-          const isLastTrack = trackIndex === activeSide.tracks.length - 1;
-
-          if (isLastTrack) {
-            shouldResumeAfterFlipRef.current = true;
-            setIsPlaying(false);
-            setIsSideComplete(true);
-            return featuredTrackDuration;
-          }
-
-          pendingAutoAdvanceAckRef.current = true;
-          setTrackIndex((currentTrackIndex) => currentTrackIndex + 1);
-          return 0;
-        }
-
-        return currentElapsed + 1;
-      });
-    }, TICK_MS);
-
-    return () => clearInterval(timer);
-  }, [activeSide.tracks.length, featuredTrackDuration, isPlaying, trackIndex]);
-
-  useEffect(() => {
-    if (!isPlaying) {
-      reelSpin.stopAnimation();
-      reelSpin.setValue(0);
-      return;
-    }
-
-    reelSpin.setValue(0);
-
-    const loop = Animated.loop(
-      Animated.timing(reelSpin, {
-        toValue: 1,
-        duration: 1600,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
+  const toggleTrack = (trackId: string) => {
+    setSelectedTrackIds((current) =>
+      current.includes(trackId) ? current.filter((id) => id !== trackId) : [...current, trackId],
     );
-
-    loop.start();
-
-    return () => loop.stop();
-  }, [isPlaying, reelSpin]);
-
-  useEffect(() => {
-    Animated.timing(progressAnimation, {
-      toValue: boundedProgressRatio,
-      duration: isPlaying ? 450 : 220,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
-  }, [boundedProgressRatio, isPlaying, progressAnimation]);
-
-  useEffect(() => {
-    return () => {
-      if (flipTimeoutRef.current) {
-        clearTimeout(flipTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    const previousTrack = previousTrackRef.current;
-    const didTrackChange = previousTrack.sideIndex === sideIndex && previousTrack.trackIndex !== trackIndex;
-
-    if (hasMountedRef.current && didTrackChange && !isFlipping) {
-      tensionAnimation.stopAnimation();
-      tensionAnimation.setValue(0);
-      Animated.sequence([
-        Animated.timing(tensionAnimation, {
-          toValue: 1,
-          duration: 170,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(tensionAnimation, {
-          toValue: 0,
-          duration: 220,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-
-    if (didTrackChange && pendingAutoAdvanceAckRef.current) {
-      triggerQueueSeekAcknowledgement('forward');
-      pendingAutoAdvanceAckRef.current = false;
-    }
-
-    previousTrackRef.current = { sideIndex, trackIndex };
-    hasMountedRef.current = true;
-  }, [isFlipping, sideIndex, tensionAnimation, trackIndex]);
-
-  const triggerHeadSettle = (direction: 'backward' | 'forward') => {
-    const settleX = direction === 'forward' ? 5 : -5;
-
-    headSettleX.stopAnimation();
-    headSettleY.stopAnimation();
-    headSettleX.setValue(0);
-    headSettleY.setValue(0);
-
-    Animated.parallel([
-      Animated.sequence([
-        Animated.timing(headSettleX, {
-          toValue: settleX,
-          duration: direction === 'forward' ? 110 : 95,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(headSettleX, {
-          toValue: 0,
-          duration: 180,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-      ]),
-      Animated.sequence([
-        Animated.timing(headSettleY, {
-          toValue: 1,
-          duration: 80,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(headSettleY, {
-          toValue: 0,
-          duration: 150,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-      ]),
-    ]).start();
   };
 
-  const isPausedAtTrackBoundary = !isPlaying && (elapsedSeconds === 0 || elapsedSeconds >= featuredTrackDuration);
-
-  const primePausedBoundaryResumeAck = (direction: 'backward' | 'forward' | null) => {
-    pausedBoundaryResumeAckRef.current = direction;
-  };
-
-  const clearPausedBoundaryResumeAck = () => {
-    primePausedBoundaryResumeAck(null);
-  };
-
-  const consumePausedBoundaryResumeAck = () => {
-    const shouldTriggerResumeAck = resolvePausedBoundaryResumeAck({
-      isPausedAtTrackBoundary,
-      queuedDirection: pausedBoundaryResumeAckRef.current,
-      trackIndex,
-      elapsedSeconds,
-    });
-
-    clearPausedBoundaryResumeAck();
-
-    if (shouldTriggerResumeAck) {
-      triggerQueueSeekAcknowledgement(shouldTriggerResumeAck);
-    }
-  };
-
-  const handleTogglePlayback = () => {
-    if (isFlipping) {
-      return;
-    }
-
-    if (!isPlaying && elapsedSeconds >= featuredTrackDuration) {
-      setElapsedSeconds(0);
-      setIsSideComplete(false);
-    }
-
-    if (!isPlaying) {
-      consumePausedBoundaryResumeAck();
-    }
-
-    setIsPlaying((currentState) => {
-      const nextState = !currentState;
-
-      if (!nextState) {
-        shouldResumeAfterFlipRef.current = false;
-      }
-
-      return nextState;
-    });
-  };
-
-  const handleAdvanceTrack = () => {
-    if (isFlipping) {
-      return;
-    }
-
-    clearPausedBoundaryResumeAck();
-    shouldResumeAfterFlipRef.current = false;
-    primePausedBoundaryResumeAck(getPausedBoundaryResumeAckForInactivePlayback({ isPlaying, direction: 'forward' }));
-    setElapsedSeconds(0);
-    setIsSideComplete(false);
-    triggerButtonSeekAcknowledgement('forward');
-    setTrackIndex((currentTrackIndex) => {
-      if (currentTrackIndex === activeSide.tracks.length - 1) {
-        return 0;
-      }
-
-      return currentTrackIndex + 1;
-    });
-  };
-
-  const handleRewindTrack = () => {
-    if (isFlipping) {
-      return;
-    }
-
-    clearPausedBoundaryResumeAck();
-    shouldResumeAfterFlipRef.current = false;
-    primePausedBoundaryResumeAck(getPausedBoundaryResumeAckForInactivePlayback({ isPlaying, direction: 'backward' }));
-    setIsSideComplete(false);
-
-    if (elapsedSeconds > 3) {
-      setElapsedSeconds(0);
-      triggerButtonSeekAcknowledgement('backward');
-      return;
-    }
-
-    setElapsedSeconds(0);
-    triggerButtonSeekAcknowledgement('backward');
-    setTrackIndex((currentTrackIndex) => {
-      if (currentTrackIndex === 0) {
-        return activeSide.tracks.length - 1;
-      }
-
-      return currentTrackIndex - 1;
-    });
-  };
-
-  const handleFlipSide = () => {
-    if (isFlipping) {
-      return;
-    }
-
-    const shouldResumePlayback = isPlaying || shouldResumeAfterFlipRef.current;
-    const shouldTriggerSideFlipAck = shouldResumeAfterFlipRef.current;
-    const nextSideIndex = sideIndex === 0 ? 1 : 0;
-
-    pendingSideFlipAckRef.current = shouldTriggerSideFlipAck;
-    setPendingFlipSideIndex(nextSideIndex);
-    primePausedBoundaryResumeAck(
-      getPausedBoundaryResumeAckForInactivePlayback({ isPlaying: shouldResumePlayback, direction: 'forward' }),
+  const toggleServiceConnection = (serviceKey: ServiceKey) => {
+    setServices((current) =>
+      current.map((service) =>
+        service.key === serviceKey
+          ? {
+              ...service,
+              connected: !service.connected,
+            }
+          : service,
+      ),
     );
-    setIsFlipping(true);
-    setHasPassedFlipMidpoint(false);
-    setIsPlaying(false);
-    flipAnimation.setValue(0);
-
-    Animated.timing(flipAnimation, {
-      toValue: 1,
-      duration: 650,
-      easing: Easing.inOut(Easing.cubic),
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (!finished) {
-        pendingSideFlipAckRef.current = false;
-        clearPausedBoundaryResumeAck();
-        setPendingFlipSideIndex(null);
-        setIsFlipping(false);
-        return;
-      }
-
-      setPendingFlipSideIndex(null);
-      setHasPassedFlipMidpoint(false);
-      setIsFlipping(false);
-      setIsPlaying(shouldResumePlayback);
-      if (pendingSideFlipAckRef.current && shouldResumePlayback) {
-        triggerQueueSeekAcknowledgement('forward');
-        pendingSideFlipAckRef.current = false;
-      }
-      flipAnimation.setValue(0);
-    });
-
-    flipTimeoutRef.current = setTimeout(() => {
-      setHasPassedFlipMidpoint(true);
-      setSideIndex(nextSideIndex);
-      setTrackIndex(0);
-      setElapsedSeconds(0);
-      setIsSideComplete(false);
-      shouldResumeAfterFlipRef.current = false;
-      flipTimeoutRef.current = null;
-    }, 325);
-  };
-
-  const handleSelectTrack = (selectedTrackIndex: number) => {
-    if (isFlipping) {
-      return;
-    }
-
-    const direction = selectedTrackIndex >= trackIndex ? 'forward' : 'backward';
-
-    clearPausedBoundaryResumeAck();
-    shouldResumeAfterFlipRef.current = false;
-    primePausedBoundaryResumeAck(getPausedBoundaryResumeAckForInactivePlayback({ isPlaying, direction }));
-    triggerQueueSeekAcknowledgement(direction);
-    setTrackIndex(selectedTrackIndex);
-    setElapsedSeconds(0);
-    setIsSideComplete(false);
-  };
-
-  const updateScrubPosition = (locationX: number) => {
-    if (progressRailWidth <= 0) {
-      return;
-    }
-
-    const nextRatio = Math.min(1, Math.max(0, locationX / progressRailWidth));
-    const nextElapsed = Math.round(nextRatio * featuredTrackDuration);
-    const previousRatio = scrubRatioRef.current;
-
-    if (Math.abs(nextRatio - previousRatio) > 0.003) {
-      scrubDirectionRef.current = nextRatio >= previousRatio ? 'forward' : 'backward';
-    }
-
-    scrubRatioRef.current = nextRatio;
-    setElapsedSeconds(Math.min(featuredTrackDuration, Math.max(0, nextElapsed)));
-  };
-
-  const handleProgressRailLayout = (event: LayoutChangeEvent) => {
-    setProgressRailWidth(event.nativeEvent.layout.width);
-  };
-
-  const animateScrubGrab = (toValue: number, duration: number) => {
-    Animated.timing(scrubGrabAnimation, {
-      toValue,
-      duration,
-      easing: toValue === 1 ? Easing.out(Easing.quad) : Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const animateElapsedPulse = () => {
-    elapsedPulseAnimation.stopAnimation();
-    elapsedPulseAnimation.setValue(0);
-    Animated.sequence([
-      Animated.timing(elapsedPulseAnimation, {
-        toValue: 1,
-        duration: 95,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }),
-      Animated.timing(elapsedPulseAnimation, {
-        toValue: 0,
-        duration: 150,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  const animateScrubSettle = () => {
-    scrubSettleAnimation.stopAnimation();
-    scrubSettleAnimation.setValue(0);
-    Animated.sequence([
-      Animated.timing(scrubSettleAnimation, {
-        toValue: scrubDirectionRef.current === 'forward' ? 1 : -1,
-        duration: 90,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }),
-      Animated.timing(scrubSettleAnimation, {
-        toValue: 0,
-        duration: 150,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  const animateSeekFlash = () => {
-    seekFlashAnimation.stopAnimation();
-    seekFlashAnimation.setValue(0);
-    Animated.sequence([
-      Animated.timing(seekFlashAnimation, {
-        toValue: 1,
-        duration: 220,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(seekFlashAnimation, {
-        toValue: 0,
-        duration: 120,
-        easing: Easing.in(Easing.quad),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  const animateBridgeShimmer = () => {
-    bridgeShimmerAnimation.stopAnimation();
-    bridgeShimmerAnimation.setValue(0);
-    Animated.sequence([
-      Animated.timing(bridgeShimmerAnimation, {
-        toValue: 1,
-        duration: 210,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(bridgeShimmerAnimation, {
-        toValue: 0,
-        duration: 140,
-        easing: Easing.in(Easing.quad),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  const animateReelSettle = () => {
-    reelSettleAnimation.stopAnimation();
-    reelSettleAnimation.setValue(0);
-    Animated.sequence([
-      Animated.timing(reelSettleAnimation, {
-        toValue: scrubDirectionRef.current === 'forward' ? 1 : -1,
-        duration: 95,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }),
-      Animated.timing(reelSettleAnimation, {
-        toValue: 0,
-        duration: 165,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  const animateTransportLed = (direction: 'backward' | 'forward') => {
-    const targetAnimation = direction === 'forward' ? advanceLedAnimation : rewindLedAnimation;
-
-    targetAnimation.stopAnimation();
-    targetAnimation.setValue(0);
-    Animated.sequence([
-      Animated.timing(targetAnimation, {
-        toValue: 1,
-        duration: 120,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }),
-      Animated.timing(targetAnimation, {
-        toValue: 0,
-        duration: 210,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
-
-  const triggerButtonSeekAcknowledgement = (direction: 'backward' | 'forward') => {
-    scrubDirectionRef.current = direction;
-    animateTransportLed(direction);
-    animateReelSettle();
-    animateElapsedPulse();
-    animateSeekFlash();
-    animateBridgeShimmer();
-  };
-
-  const triggerQueueSeekAcknowledgement = (direction: 'backward' | 'forward') => {
-    scrubDirectionRef.current = direction;
-    animateScrubSettle();
-    animateReelSettle();
-    animateElapsedPulse();
-    animateSeekFlash();
-    animateBridgeShimmer();
-  };
-
-  const handleScrubGrant = (event: GestureResponderEvent) => {
-    clearPausedBoundaryResumeAck();
-    setIsScrubbing(true);
-    scrubSettleAnimation.stopAnimation();
-    scrubSettleAnimation.setValue(0);
-    scrubRatioRef.current = boundedProgressRatio;
-    animateScrubGrab(1, 80);
-    updateScrubPosition(event.nativeEvent.locationX);
-  };
-
-  const handleScrubMove = (event: GestureResponderEvent) => {
-    updateScrubPosition(event.nativeEvent.locationX);
-  };
-
-  const handleScrubRelease = () => {
-    setIsScrubbing(false);
-    primePausedBoundaryResumeAck(
-      getPausedBoundaryResumeAckForInactivePlayback({
-        isPlaying: isPlaying || !(elapsedSeconds === 0 || elapsedSeconds >= featuredTrackDuration),
-        direction: scrubDirectionRef.current,
-      }),
-    );
-    animateScrubGrab(0, 180);
-    animateScrubSettle();
-    animateReelSettle();
-    animateElapsedPulse();
-    animateSeekFlash();
-    animateBridgeShimmer();
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.heroCard}>
-          <Text style={styles.kicker}>Mixtape mobile</Text>
-          <Text style={styles.title}>{seedTape.title}</Text>
-          <Text style={styles.note}>{seedTape.note}</Text>
+      <View style={styles.appShell}>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.eyebrow}>Mixtape</Text>
+            <Text style={styles.headerTitle}>Build a tape from the service you actually use.</Text>
+          </View>
+          <View style={styles.headerBadge}>
+            <Text style={styles.headerBadgeText}>{connectedCount} connected</Text>
+          </View>
         </View>
 
-        <View style={styles.deckCard}>
-          <View style={styles.deckTopRow}>
-            <View>
-              <Text style={styles.deckLabel}>Loaded tape</Text>
-              <Text style={styles.deckCreator}>Made by {seedTape.creator}</Text>
-            </View>
-            <View
-              style={[
-                styles.livePill,
-                isPlaying && styles.livePillPlaying,
-                isSideComplete && styles.livePillComplete,
-              ]}
-            >
-              <Text style={styles.livePillText}>{isSideComplete ? 'Side complete' : isPlaying ? 'Playing' : 'Paused'}</Text>
-            </View>
-          </View>
-
-          <Animated.View
-            style={[
-              styles.cassetteShell,
-              { backgroundColor: seedTape.palette.shell },
-              isFlipping && {
-                transform: [{ perspective: 1200 }, { rotateY: flipRotation }, { scale: flipScale }],
-              },
-            ]}
-          >
-            <View style={styles.cassetteWindow}>
-              <View style={styles.reelColumn}>
-                <Animated.View
-                  style={[
-                    styles.reelOuter,
-                    isPlaying && styles.reelOuterActive,
-                    {
-                      transform: [
-                        { rotate: reelRotation },
-                        { scale: leftReelTensionScale },
-                        { scale: leftReelSettleScale },
-                        { translateY: leftReelSettleTranslateY },
-                      ],
-                    },
-                  ]}
-                >
-                  <View style={styles.reelInner} />
-                </Animated.View>
-                <Text style={styles.reelCaption}>{isPlaying ? 'spin' : 'idle'}</Text>
-              </View>
-              <Animated.View
-                style={[
-                  styles.tapeBridge,
-                  { transform: [{ translateX: tapeBridgeTensionShift }, { translateX: headSettleTranslateX }, { translateY: headSettleTranslateY }] },
-                ]}
-              >
-                <Animated.View
-                  pointerEvents="none"
-                  style={[
-                    styles.tapeBridgeShimmer,
-                    {
-                      opacity: bridgeShimmerOpacity,
-                      transform: [{ translateX: bridgeShimmerTranslateX }],
-                    },
-                  ]}
-                />
-                <Animated.View style={[styles.tapeLine, { opacity: tapeLineTensionOpacity, transform: [{ scaleX: tapeLineTensionScale }] }]} />
-                <Text style={styles.nowPlayingLabel}>{nowPlayingBodyCopy.title}</Text>
-                <Text style={styles.nowPlayingMeta}>{nowPlayingBodyCopy.meta}</Text>
-                <Text style={styles.progressText}>
-                  <Animated.Text style={[styles.progressElapsedText, { transform: [{ scale: elapsedPulseScale }] }]}>
-                    {formatProgress(elapsedSeconds)}
-                  </Animated.Text>
-                  {' / '}
-                  {featuredTrack.duration}
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          {activeTab === 'tapes' ? (
+            <View style={styles.screenStack}>
+              <View style={styles.heroPanel}>
+                <Text style={styles.heroKicker}>Ready to share</Text>
+                <Text style={styles.heroTitle}>Turn saved songs into a polished digital mixtape.</Text>
+                <Text style={styles.heroBody}>
+                  Pull in favorites from Spotify, Apple Music, or TIDAL, arrange the flow, and send a tape that feels intentional.
                 </Text>
-                <View
-                  style={styles.progressRailTouchTarget}
-                  onLayout={handleProgressRailLayout}
-                  onMoveShouldSetResponder={() => true}
-                  onResponderGrant={handleScrubGrant}
-                  onResponderMove={handleScrubMove}
-                  onResponderRelease={handleScrubRelease}
-                  onResponderTerminate={handleScrubRelease}
-                  onStartShouldSetResponder={() => true}
-                >
-                  <View style={styles.progressRail}>
-                    <Animated.View
-                      style={[
-                        styles.progressFill,
-                        isPlaying && styles.progressFillPlaying,
-                        { width: animatedProgressWidth },
-                      ]}
-                    >
-                      <Animated.View
-                        pointerEvents="none"
-                        style={[
-                          styles.progressFillFlash,
-                          {
-                            opacity: seekFlashOpacity,
-                            transform: [{ translateX: seekFlashTranslateX }],
-                          },
-                        ]}
-                      />
-                    </Animated.View>
+                <View style={styles.heroStatsRow}>
+                  <View style={styles.heroStatCard}>
+                    <Text style={styles.heroStatValue}>24</Text>
+                    <Text style={styles.heroStatLabel}>songs shortlisted</Text>
                   </View>
-                  <Animated.View
-                    pointerEvents="none"
-                    style={[
-                      styles.progressThumb,
-                      isScrubbing && styles.progressThumbActive,
-                      {
-                        left: `${boundedProgressRatio * 100}%`,
-                        transform: [{ translateX: scrubThumbSettleX }, { translateY: scrubThumbTranslateY }, { scale: scrubThumbScale }],
-                      },
-                    ]}
-                  />
+                  <View style={styles.heroStatCard}>
+                    <Text style={styles.heroStatValue}>3</Text>
+                    <Text style={styles.heroStatLabel}>services available</Text>
+                  </View>
                 </View>
-              </Animated.View>
-              <View style={styles.reelColumn}>
-                <Animated.View
-                  style={[
-                    styles.reelOuter,
-                    styles.reelOuterRight,
-                    isPlaying && styles.reelOuterActive,
-                    {
-                      transform: [
-                        { rotate: reverseReelRotation },
-                        { scale: rightReelTensionScale },
-                        { scale: rightReelSettleScale },
-                        { translateY: rightReelSettleTranslateY },
-                      ],
-                    },
-                  ]}
+              </View>
+
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Your tapes</Text>
+                <Text style={styles.sectionAction}>Newest first</Text>
+              </View>
+
+              {tapesSeed.map((tape) => (
+                <View key={tape.id} style={styles.tapeCard}>
+                  <View
+                    style={[
+                      styles.tapeGradient,
+                      { backgroundColor: tape.gradient[0] },
+                    ]}
+                  >
+                    <View style={[styles.tapeGradientOrb, { backgroundColor: tape.gradient[1] }]} />
+                    <Text style={styles.tapeCardService}>{tape.service}</Text>
+                    <Text style={styles.tapeCardTitle}>{tape.title}</Text>
+                    <Text style={styles.tapeCardSubtitle}>{tape.subtitle}</Text>
+                    <View style={styles.tapeMetaRow}>
+                      <Text style={styles.tapeMetaText}>{tape.trackCount} tracks</Text>
+                      <Text style={styles.tapeMetaText}>{tape.duration}</Text>
+                    </View>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          {activeTab === 'create' ? (
+            <View style={styles.screenStack}>
+              <View style={styles.createCard}>
+                <Text style={styles.sectionTitle}>Playlist creation</Text>
+                <Text style={styles.createBody}>
+                  Choose a source, pick the mood, and assemble a tape from realistic mock results until the live APIs are wired in.
+                </Text>
+
+                <Text style={styles.fieldLabel}>Tape title</Text>
+                <TextInput
+                  value={mixtapeTitle}
+                  onChangeText={setMixtapeTitle}
+                  placeholder="Name your mixtape"
+                  placeholderTextColor="#7D7C8F"
+                  style={styles.titleInput}
+                />
+
+                <Text style={styles.fieldLabel}>Source service</Text>
+                <View style={styles.pillRow}>
+                  {services.map((service) => {
+                    const isSelected = selectedService === service.key;
+                    return (
+                      <Pressable
+                        key={service.key}
+                        onPress={() => setSelectedService(service.key)}
+                        style={[
+                          styles.servicePill,
+                          isSelected && { borderColor: service.accent, backgroundColor: '#151723' },
+                        ]}
+                      >
+                        <View style={[styles.serviceDot, { backgroundColor: service.accent }]} />
+                        <Text style={styles.servicePillText}>{service.name}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                <Text style={styles.fieldLabel}>Mood direction</Text>
+                <View style={styles.pillRow}>
+                  {moods.map((mood) => {
+                    const isSelected = selectedMood === mood;
+                    return (
+                      <Pressable
+                        key={mood}
+                        onPress={() => setSelectedMood(mood)}
+                        style={[styles.moodPill, isSelected && styles.moodPillActive]}
+                      >
+                        <Text style={[styles.moodPillText, isSelected && styles.moodPillTextActive]}>{mood}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Available songs</Text>
+                <Text style={styles.sectionAction}>{serviceLabel(selectedService)} mock catalog</Text>
+              </View>
+
+              {filteredTracks.map((track) => {
+                const selected = selectedTrackIds.includes(track.id);
+                return (
+                  <Pressable
+                    key={track.id}
+                    onPress={() => toggleTrack(track.id)}
+                    style={[styles.trackCard, selected && styles.trackCardSelected]}
+                  >
+                    <View style={styles.trackInfo}>
+                      <Text style={styles.trackTitle}>{track.title}</Text>
+                      <Text style={styles.trackArtist}>{track.artist}</Text>
+                      <Text style={styles.trackEnergy}>{track.energy}</Text>
+                    </View>
+                    <View style={styles.trackMetaCol}>
+                      <Text style={styles.trackDuration}>{track.duration}</Text>
+                      <Text style={styles.trackSelectState}>{selected ? 'Selected' : 'Add'}</Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+
+              <View style={styles.summaryCard}>
+                <View style={styles.summaryHeaderRow}>
+                  <View>
+                    <Text style={styles.sectionTitle}>Current tape summary</Text>
+                    <Text style={styles.summarySubtitle}>{mixtapeTitle}</Text>
+                  </View>
+                  <View style={styles.switchWrap}>
+                    <Text style={styles.switchLabel}>Smart ordering</Text>
+                    <Switch value={smartOrderingEnabled} onValueChange={setSmartOrderingEnabled} trackColor={{ true: '#FF7A3D' }} />
+                  </View>
+                </View>
+                <Text style={styles.summaryMeta}>{selectedTracks.length} songs selected • Mood: {selectedMood}</Text>
+                {selectedTracks.map((track) => (
+                  <View key={track.id} style={styles.summaryRow}>
+                    <Text style={styles.summaryTrack}>{track.title}</Text>
+                    <Text style={styles.summaryDuration}>{track.duration}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {activeTab === 'profile' ? (
+            <View style={styles.screenStack}>
+              <View style={styles.profileHero}>
+                <Text style={styles.profileName}>Steve’s Mixtape Studio</Text>
+                <Text style={styles.profileBody}>
+                  Control which services are connected, what the app can import, and how your tape-building profile presents itself.
+                </Text>
+              </View>
+
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Connected services</Text>
+                <Text style={styles.sectionAction}>Tap to toggle mock status</Text>
+              </View>
+
+              {services.map((service) => (
+                <Pressable
+                  key={service.key}
+                  onPress={() => toggleServiceConnection(service.key)}
+                  style={styles.connectionCard}
                 >
-                  <View style={styles.reelInner} />
-                </Animated.View>
-                <Text style={styles.reelCaption}>{flipCompletionSide.label.toLowerCase()}</Text>
+                  <View style={[styles.connectionStripe, { backgroundColor: service.accent }]} />
+                  <View style={styles.connectionCopy}>
+                    <Text style={styles.connectionTitle}>{service.name}</Text>
+                    <Text style={styles.connectionBody}>{service.description}</Text>
+                  </View>
+                  <View style={service.connected ? styles.connectedBadge : styles.disconnectedBadge}>
+                    <Text style={service.connected ? styles.connectedBadgeText : styles.disconnectedBadgeText}>
+                      {service.connected ? 'Connected' : 'Connect'}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+
+              <View style={styles.preferencesCard}>
+                <Text style={styles.sectionTitle}>Import preferences</Text>
+                <View style={styles.preferenceRow}>
+                  <Text style={styles.preferenceLabel}>Default service</Text>
+                  <Text style={styles.preferenceValue}>{selectedServiceCard.name}</Text>
+                </View>
+                <View style={styles.preferenceRow}>
+                  <Text style={styles.preferenceLabel}>Favorite mood</Text>
+                  <Text style={styles.preferenceValue}>{selectedMood}</Text>
+                </View>
+                <View style={styles.preferenceRow}>
+                  <Text style={styles.preferenceLabel}>Next live integration target</Text>
+                  <Text style={styles.preferenceValue}>Song search + playlist save</Text>
+                </View>
               </View>
             </View>
+          ) : null}
+        </ScrollView>
 
-            <Animated.View pointerEvents="none" style={[styles.flipOverlay, { opacity: flipOverlayOpacity }]}>
-              <Text style={styles.flipOverlayText}>Flipping to {flipCopySide.label}</Text>
-            </Animated.View>
-
-            <View style={[styles.labelStrip, { backgroundColor: seedTape.palette.label }]}>
-              <View>
-                <Text style={[styles.labelTitle, { color: seedTape.palette.ink }]}>{seedTape.title}</Text>
-                <Text style={[styles.labelSubtitle, { color: seedTape.palette.ink }]}>private deck preview</Text>
-              </View>
-              <View style={[styles.sideBadge, { backgroundColor: flipMidpointSide.accent }]}>
-                <Text style={styles.sideBadgeText}>{flipMidpointSide.label}</Text>
-              </View>
-            </View>
-
-            {isSideComplete ? (
+        <View style={styles.tabBar}>
+          {[
+            ['tapes', 'Tapes'],
+            ['create', 'Create'],
+            ['profile', 'Profile'],
+          ].map(([key, label]) => {
+            const typedKey = key as TabKey;
+            const selected = activeTab === typedKey;
+            return (
               <Pressable
-                disabled={isFlipping}
-                onPress={handleFlipSide}
-                style={({ pressed }) => [
-                  styles.sideCompleteCard,
-                  isFlipping && styles.transportButtonDisabled,
-                  pressed && styles.transportButtonPressed,
-                ]}
+                key={key}
+                onPress={() => setActiveTab(typedKey)}
+                style={[styles.tabItem, selected && styles.tabItemActive]}
               >
-                <Text style={styles.sideCompleteEyebrow}>{activeSide.label} wrapped</Text>
-                <Text style={styles.sideCompleteTitle}>Flip to {flipCopySide.label}</Text>
-                <Text style={styles.sideCompleteHint}>Last track finished. Tap once to load the next side.</Text>
+                <Text style={[styles.tabText, selected && styles.tabTextActive]}>{label}</Text>
               </Pressable>
-            ) : null}
-
-            <View style={styles.transportRow}>
-              <TransportButton
-                disabled={isFlipping}
-                label="rew"
-                ledOpacity={rewindLedOpacity}
-                onPress={handleRewindTrack}
-                onPressIn={() => triggerHeadSettle('backward')}
-              />
-              <TransportButton disabled={isFlipping} label={isPlaying ? 'pause' : 'play'} onPress={handleTogglePlayback} variant="primary" />
-              <TransportButton
-                disabled={isFlipping}
-                label="ff"
-                ledOpacity={advanceLedOpacity}
-                onPress={handleAdvanceTrack}
-                onPressIn={() => triggerHeadSettle('forward')}
-              />
-              <TransportButton
-                disabled={isFlipping}
-                label={isFlipping ? `flipping ${flipCopySide.label.toLowerCase()}…` : isSideComplete ? `flip ${flipCopySide.label.toLowerCase()}` : 'flip'}
-                onPress={handleFlipSide}
-                variant={isSideComplete ? 'flip-ready' : 'default'}
-              />
-            </View>
-          </Animated.View>
+            );
+          })}
         </View>
-
-        <View style={styles.metaGrid}>
-          <View style={styles.metaCard}>
-            <Text style={styles.metaEyebrow}>Current vibe</Text>
-            <Text style={styles.metaValue}>{featuredTrack.mood}</Text>
-            <Text style={styles.metaHint}>
-              {isFlipping
-                ? `The deck is turning over to ${flipCopySide.label.toLowerCase()}.`
-                : isPlaying
-                  ? 'Deck is rolling through the current cut.'
-                  : 'Playback is paused and ready to resume.'}
-            </Text>
-          </View>
-          <View style={styles.metaCard}>
-            <Text style={styles.metaEyebrow}>Next up</Text>
-            <Text style={styles.metaValue}>
-              {isSideComplete
-                ? `Ready for ${upcomingSide.label}`
-                : flipMidpointNextTrack?.title ?? 'End of side'}
-            </Text>
-            <Text style={styles.metaHint}>
-              {isSideComplete
-                ? 'The deck is paused at the leader. Flip the cassette to keep listening.'
-                : flipMidpointNextTrack?.artist ?? 'Flip the tape to keep the session going.'}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.listCard}>
-          <Text style={styles.listEyebrow}>{queuePanel.eyebrow}</Text>
-          {queuePanel.rows.map((track, index) => (
-            <Pressable
-              key={track.id}
-              onPress={() => handleSelectTrack(index)}
-              style={({ pressed }) => [
-                styles.trackRow,
-                track.isActive && styles.trackRowActive,
-                pressed && styles.trackRowPressed,
-              ]}
-            >
-              <View>
-                <Text style={styles.trackIndex}>{track.id}</Text>
-                <Text style={styles.trackTitle}>{track.title}</Text>
-                <Text style={styles.trackMeta}>{track.artist}</Text>
-              </View>
-              <Text style={styles.trackDuration}>{track.duration}</Text>
-            </Pressable>
-          ))}
-        </View>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -1038,442 +393,466 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#120f14',
+    backgroundColor: '#0A0B10',
   },
-  content: {
+  appShell: {
+    flex: 1,
     paddingHorizontal: 18,
-    paddingTop: 20,
-    paddingBottom: 28,
-    gap: 18,
+    paddingTop: 18,
+    paddingBottom: 14,
   },
-  heroCard: {
-    borderRadius: 24,
-    padding: 22,
-    backgroundColor: '#1d1821',
-    borderWidth: 1,
-    borderColor: '#2f2735',
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 18,
+    gap: 12,
   },
-  kicker: {
-    color: '#b8a8c8',
+  eyebrow: {
+    color: '#8D90A7',
     fontSize: 12,
     textTransform: 'uppercase',
     letterSpacing: 2,
-    marginBottom: 10,
+    marginBottom: 8,
   },
-  title: {
-    color: '#fff7ea',
-    fontSize: 30,
+  headerTitle: {
+    color: '#F5F7FF',
+    fontSize: 27,
     fontWeight: '700',
-    marginBottom: 10,
+    maxWidth: 260,
+    lineHeight: 33,
   },
-  note: {
-    color: '#d3c6d9',
-    lineHeight: 21,
-    fontSize: 15,
-  },
-  deckCard: {
-    borderRadius: 28,
-    padding: 18,
-    backgroundColor: '#231c28',
+  headerBadge: {
+    backgroundColor: '#171926',
+    borderColor: '#262A3D',
     borderWidth: 1,
-    borderColor: '#3b3142',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 16,
+  },
+  headerBadgeText: {
+    color: '#D7DBF0',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  scrollContent: {
+    paddingBottom: 20,
+  },
+  screenStack: {
     gap: 16,
   },
-  deckTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
+  heroPanel: {
+    borderRadius: 28,
+    padding: 22,
+    backgroundColor: '#11131D',
+    borderWidth: 1,
+    borderColor: '#23273A',
   },
-  deckLabel: {
-    color: '#b8a8c8',
-    fontSize: 11,
+  heroKicker: {
+    color: '#FF8B57',
+    fontSize: 12,
     textTransform: 'uppercase',
     letterSpacing: 1.8,
-    marginBottom: 4,
+    marginBottom: 8,
   },
-  deckCreator: {
-    color: '#f4ecff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  livePill: {
-    borderRadius: 999,
-    backgroundColor: 'rgba(255, 122, 89, 0.14)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 122, 89, 0.4)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  livePillPlaying: {
-    backgroundColor: 'rgba(255, 209, 102, 0.14)',
-    borderColor: 'rgba(255, 209, 102, 0.45)',
-  },
-  livePillComplete: {
-    backgroundColor: 'rgba(129, 230, 161, 0.14)',
-    borderColor: 'rgba(129, 230, 161, 0.45)',
-  },
-  livePillText: {
-    color: '#ffd4c9',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  cassetteShell: {
-    borderRadius: 26,
-    padding: 16,
-    gap: 14,
-  },
-  flipOverlay: {
-    position: 'absolute',
-    top: 18,
-    right: 18,
-    left: 18,
-    zIndex: 2,
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    backgroundColor: 'rgba(18, 15, 20, 0.78)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 209, 102, 0.28)',
-    alignItems: 'center',
-  },
-  flipOverlayText: {
-    color: '#fff7ea',
-    fontSize: 12,
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 28,
     fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1.4,
+    lineHeight: 34,
+    marginBottom: 10,
   },
-  cassetteWindow: {
-    backgroundColor: '#3c3226',
-    borderRadius: 18,
-    padding: 16,
+  heroBody: {
+    color: '#B6BCD5',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  heroStatsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 14,
+    gap: 12,
+    marginTop: 18,
   },
-  reelColumn: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  reelOuter: {
-    width: 74,
-    height: 74,
-    borderRadius: 37,
-    borderWidth: 8,
-    borderColor: '#5f5140',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1f1912',
-  },
-  reelOuterActive: {
-    borderColor: '#f6e4b7',
-  },
-  reelOuterRight: {
-    borderColor: '#6d5b46',
-  },
-  reelInner: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#d8c8a7',
-  },
-  reelCaption: {
-    color: '#f3e8d2',
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-  },
-  tapeBridge: {
+  heroStatCard: {
     flex: 1,
-    minHeight: 100,
-    borderRadius: 16,
-    backgroundColor: '#151116',
+    borderRadius: 18,
+    backgroundColor: '#171A27',
     borderWidth: 1,
-    borderColor: '#574735',
+    borderColor: '#262C42',
     padding: 14,
-    justifyContent: 'center',
-    overflow: 'hidden',
   },
-  tapeBridgeShimmer: {
-    position: 'absolute',
-    top: 18,
-    bottom: 18,
-    width: 34,
-    borderRadius: 12,
-    backgroundColor: '#fff4d6',
-  },
-  tapeLine: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: '50%',
-    height: 2,
-    backgroundColor: 'rgba(255, 209, 102, 0.35)',
-  },
-  nowPlayingLabel: {
-    color: '#fff7ea',
-    fontSize: 20,
+  heroStatValue: {
+    color: '#FFFFFF',
+    fontSize: 22,
     fontWeight: '700',
     marginBottom: 6,
   },
-  nowPlayingMeta: {
-    color: '#d4c5aa',
+  heroStatLabel: {
+    color: '#9BA3C2',
     fontSize: 13,
   },
-  progressText: {
-    color: '#f6e4b7',
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  progressElapsedText: {
-    color: '#fff2cf',
-  },
-  progressRailTouchTarget: {
-    justifyContent: 'center',
-    paddingVertical: 8,
-  },
-  progressRail: {
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255, 209, 102, 0.18)',
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 999,
-    backgroundColor: '#ff7a59',
-    overflow: 'hidden',
-  },
-  progressFillFlash: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 26,
-    borderRadius: 999,
-    backgroundColor: '#fff6de',
-  },
-  progressFillPlaying: {
-    shadowColor: '#ff7a59',
-    shadowOpacity: 0.28,
-    shadowRadius: 8,
-  },
-  progressThumb: {
-    position: 'absolute',
-    top: '50%',
-    width: 14,
-    height: 14,
-    borderRadius: 999,
-    marginLeft: -7,
-    marginTop: -7,
-    backgroundColor: '#fff7ea',
-    borderWidth: 2,
-    borderColor: '#ff7a59',
-    shadowColor: '#120f14',
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-  },
-  progressThumbActive: {
-    transform: [{ scale: 1.08 }],
-  },
-  labelStrip: {
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+  sectionHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
+    alignItems: 'center',
+    marginTop: 4,
   },
-  labelTitle: {
-    fontSize: 18,
+  sectionTitle: {
+    color: '#F5F7FF',
+    fontSize: 20,
     fontWeight: '700',
   },
-  labelSubtitle: {
+  sectionAction: {
+    color: '#8A90AA',
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 1.3,
+  },
+  tapeCard: {
+    borderRadius: 26,
+    overflow: 'hidden',
+  },
+  tapeGradient: {
+    borderRadius: 26,
+    padding: 20,
+    minHeight: 176,
+    justifyContent: 'space-between',
+    overflow: 'hidden',
+  },
+  tapeGradientOrb: {
+    position: 'absolute',
+    width: 180,
+    height: 180,
+    borderRadius: 999,
+    opacity: 0.28,
+    right: -36,
+    top: -32,
+  },
+  tapeCardService: {
+    color: '#FFF7F2',
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+  },
+  tapeCardTitle: {
+    color: '#FFFFFF',
+    fontSize: 26,
+    fontWeight: '700',
+    marginTop: 18,
+  },
+  tapeCardSubtitle: {
+    color: '#F7EDE7',
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 8,
+    maxWidth: '88%',
+  },
+  tapeMetaRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 18,
+  },
+  tapeMetaText: {
+    color: '#FFF4EE',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  createCard: {
+    borderRadius: 28,
+    padding: 20,
+    backgroundColor: '#11131D',
+    borderWidth: 1,
+    borderColor: '#23273A',
+  },
+  createBody: {
+    color: '#A8AEC7',
+    fontSize: 14,
+    lineHeight: 21,
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  fieldLabel: {
+    color: '#E7EAFA',
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 10,
+    marginTop: 10,
+  },
+  titleInput: {
+    backgroundColor: '#171A27',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#262C42',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    color: '#FFFFFF',
+    fontSize: 15,
+  },
+  pillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  servicePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#10131D',
+    borderWidth: 1,
+    borderColor: '#262C42',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 16,
+  },
+  serviceDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+  },
+  servicePillText: {
+    color: '#EDF0FF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  moodPill: {
+    backgroundColor: '#171A27',
+    borderWidth: 1,
+    borderColor: '#262C42',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 16,
+  },
+  moodPillActive: {
+    backgroundColor: '#FF7A3D',
+    borderColor: '#FF7A3D',
+  },
+  moodPillText: {
+    color: '#D6DBF3',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  moodPillTextActive: {
+    color: '#FFFFFF',
+  },
+  trackCard: {
+    borderRadius: 20,
+    padding: 16,
+    backgroundColor: '#11131D',
+    borderWidth: 1,
+    borderColor: '#23273A',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  trackCardSelected: {
+    borderColor: '#FF7A3D',
+    backgroundColor: '#17131A',
+  },
+  trackInfo: {
+    flex: 1,
+  },
+  trackTitle: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  trackArtist: {
+    color: '#B7BED9',
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  trackEnergy: {
+    color: '#8D96B6',
     fontSize: 12,
     textTransform: 'uppercase',
     letterSpacing: 1.2,
-    opacity: 0.7,
-    marginTop: 4,
   },
-  sideBadge: {
-    minWidth: 66,
+  trackMetaCol: {
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  trackDuration: {
+    color: '#FFF2EC',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  trackSelectState: {
+    color: '#FF9A6E',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+  },
+  summaryCard: {
+    borderRadius: 24,
+    padding: 18,
+    backgroundColor: '#131622',
+    borderWidth: 1,
+    borderColor: '#23273A',
+  },
+  summaryHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  summarySubtitle: {
+    color: '#FFB08B',
+    fontSize: 14,
+    marginTop: 5,
+  },
+  summaryMeta: {
+    color: '#A6ADC8',
+    fontSize: 13,
+    marginTop: 12,
+    marginBottom: 10,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#222637',
+  },
+  summaryTrack: {
+    color: '#F2F5FF',
+    fontSize: 14,
+  },
+  summaryDuration: {
+    color: '#9FA7C5',
+    fontSize: 13,
+  },
+  switchWrap: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  switchLabel: {
+    color: '#A2A9C6',
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 1.1,
+  },
+  profileHero: {
+    borderRadius: 28,
+    padding: 22,
+    backgroundColor: '#11131D',
+    borderWidth: 1,
+    borderColor: '#23273A',
+  },
+  profileName: {
+    color: '#FFFFFF',
+    fontSize: 26,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+  profileBody: {
+    color: '#AAB1CC',
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  connectionCard: {
+    borderRadius: 22,
+    backgroundColor: '#11131D',
+    borderWidth: 1,
+    borderColor: '#23273A',
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  connectionStripe: {
+    width: 6,
+    alignSelf: 'stretch',
+    borderRadius: 999,
+  },
+  connectionCopy: {
+    flex: 1,
+  },
+  connectionTitle: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  connectionBody: {
+    color: '#A5ADC9',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  connectedBadge: {
+    backgroundColor: '#163221',
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  sideBadgeText: {
-    color: '#1f1912',
-    fontWeight: '700',
-  },
-  sideCompleteCard: {
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: 'rgba(129, 230, 161, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(129, 230, 161, 0.42)',
-    gap: 4,
-  },
-  sideCompleteEyebrow: {
-    color: '#9fe0b0',
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: 1.4,
-  },
-  sideCompleteTitle: {
-    color: '#fff7ea',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  sideCompleteHint: {
-    color: '#d3f0db',
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  transportRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  transportButtonWrap: {
-    flex: 1,
-  },
-  transportButton: {
-    borderRadius: 14,
-    backgroundColor: '#2a2118',
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#5f5140',
-    overflow: 'hidden',
-  },
-  transportPrimaryButton: {
-    backgroundColor: '#3d291f',
-    borderColor: '#ff7a59',
-  },
-  transportFlipButtonReady: {
-    backgroundColor: 'rgba(129, 230, 161, 0.18)',
-    borderColor: 'rgba(129, 230, 161, 0.5)',
-  },
-  transportButtonDisabled: {
-    opacity: 0.58,
-  },
-  transportButtonPressed: {
-    opacity: 0.82,
-    transform: [{ scale: 0.98 }],
-  },
-  transportButtonLed: {
-    position: 'absolute',
-    top: 7,
-    right: 8,
-    width: 5,
-    height: 5,
-    borderRadius: 999,
-    backgroundColor: '#ffb36b',
-    shadowColor: '#ffb36b',
-    shadowOpacity: 0.55,
-    shadowRadius: 5,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  transportText: {
-    color: '#f8edd5',
+  connectedBadgeText: {
+    color: '#8FF0AE',
     fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
     fontWeight: '700',
   },
-  metaGrid: {
-    flexDirection: 'row',
-    gap: 12,
+  disconnectedBadge: {
+    backgroundColor: '#231924',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  metaCard: {
-    flex: 1,
-    borderRadius: 20,
-    padding: 16,
-    backgroundColor: '#1d1821',
-    borderWidth: 1,
-    borderColor: '#2f2735',
-    gap: 6,
-  },
-  metaEyebrow: {
-    color: '#b8a8c8',
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: 1.4,
-  },
-  metaValue: {
-    color: '#fff7ea',
-    fontSize: 18,
+  disconnectedBadgeText: {
+    color: '#FFB69C',
+    fontSize: 12,
     fontWeight: '700',
   },
-  metaHint: {
-    color: '#d3c6d9',
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  listCard: {
+  preferencesCard: {
     borderRadius: 24,
     padding: 18,
-    backgroundColor: '#1d1821',
+    backgroundColor: '#11131D',
     borderWidth: 1,
-    borderColor: '#2f2735',
+    borderColor: '#23273A',
     gap: 12,
   },
-  listEyebrow: {
-    color: '#b8a8c8',
-    fontSize: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 1.8,
-  },
-  trackRow: {
-    borderRadius: 18,
-    padding: 14,
-    backgroundColor: '#251e2b',
-    borderWidth: 1,
-    borderColor: '#352c3d',
+  preferenceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
+    gap: 16,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#202437',
   },
-  trackRowActive: {
-    borderColor: 'rgba(255, 122, 89, 0.55)',
-    backgroundColor: 'rgba(255, 122, 89, 0.08)',
-  },
-  trackRowPressed: {
-    opacity: 0.9,
-    transform: [{ scale: 0.99 }],
-  },
-  trackIndex: {
-    color: '#ffb59f',
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-    marginBottom: 4,
-  },
-  trackTitle: {
-    color: '#fff7ea',
-    fontSize: 17,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  trackMeta: {
-    color: '#cfc0d6',
+  preferenceLabel: {
+    color: '#A2A9C6',
     fontSize: 13,
   },
-  trackDuration: {
-    color: '#f6e4b7',
+  preferenceValue: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+    maxWidth: '48%',
+    textAlign: 'right',
+  },
+  tabBar: {
+    flexDirection: 'row',
+    gap: 10,
+    backgroundColor: '#11131D',
+    borderRadius: 24,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#23273A',
+  },
+  tabItem: {
+    flex: 1,
+    borderRadius: 16,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  tabItemActive: {
+    backgroundColor: '#FF7A3D',
+  },
+  tabText: {
+    color: '#9EA6C7',
     fontSize: 13,
     fontWeight: '700',
+  },
+  tabTextActive: {
+    color: '#FFFFFF',
   },
 });
