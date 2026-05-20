@@ -10,108 +10,9 @@ import {
   TextInput,
   View,
 } from 'react-native';
-
-type TabKey = 'tapes' | 'create' | 'profile';
-type ServiceKey = 'spotify' | 'apple' | 'tidal';
-type MoodKey = 'Late Night' | 'Road Trip' | 'Soft Launch' | 'After Hours';
-
-type Service = {
-  key: ServiceKey;
-  name: string;
-  accent: string;
-  description: string;
-  connected: boolean;
-};
-
-type Track = {
-  id: string;
-  title: string;
-  artist: string;
-  service: ServiceKey;
-  duration: string;
-  energy: string;
-};
-
-type Tape = {
-  id: string;
-  title: string;
-  subtitle: string;
-  service: string;
-  trackCount: number;
-  duration: string;
-  gradient: [string, string];
-};
-
-const servicesSeed: Service[] = [
-  {
-    key: 'spotify',
-    name: 'Spotify',
-    accent: '#1ED760',
-    description: 'Best for discovery, blends, and fast playlist import.',
-    connected: true,
-  },
-  {
-    key: 'apple',
-    name: 'Apple Music',
-    accent: '#FA2D48',
-    description: 'High fidelity catalog with tight iPhone ecosystem support.',
-    connected: false,
-  },
-  {
-    key: 'tidal',
-    name: 'TIDAL',
-    accent: '#7C5CFF',
-    description: 'Editorial picks and premium listening for detail-first users.',
-    connected: false,
-  },
-];
-
-const tapesSeed: Tape[] = [
-  {
-    id: 'tape-1',
-    title: 'Neon Afterglow',
-    subtitle: 'A glossy night-drive mix built from saved likes and recent repeats.',
-    service: 'Spotify',
-    trackCount: 12,
-    duration: '43 min',
-    gradient: ['#FD6B2F', '#A63DFF'],
-  },
-  {
-    id: 'tape-2',
-    title: 'Sunday in Silver',
-    subtitle: 'Warm R&B, indie soul, and low-stakes optimism for slow mornings.',
-    service: 'Apple Music',
-    trackCount: 9,
-    duration: '31 min',
-    gradient: ['#3CC8FF', '#1A5CFF'],
-  },
-  {
-    id: 'tape-3',
-    title: 'Blue Room Draft',
-    subtitle: 'A tighter cut aimed at late-night headphones and zero skips.',
-    service: 'TIDAL',
-    trackCount: 14,
-    duration: '52 min',
-    gradient: ['#121212', '#5B5B5B'],
-  },
-];
-
-const discoveryTracks: Track[] = [
-  { id: '1', title: 'Midnight Sender', artist: 'NOVA STATIC', service: 'spotify', duration: '3:42', energy: 'Velvet synth' },
-  { id: '2', title: 'Summer Receiver', artist: 'Mika Vale', service: 'apple', duration: '4:08', energy: 'Bright pop' },
-  { id: '3', title: 'Soft Focus', artist: 'Juno Atlas', service: 'tidal', duration: '2:58', energy: 'Alt-R&B' },
-  { id: '4', title: 'Corner Booth', artist: 'The Night Guests', service: 'spotify', duration: '3:25', energy: 'Indie groove' },
-  { id: '5', title: 'Glass Hearts', artist: 'Avery Monroe', service: 'apple', duration: '3:54', energy: 'Slow burn' },
-  { id: '6', title: 'Signal Fade', artist: 'Hotel Fiction', service: 'tidal', duration: '4:11', energy: 'Cinematic' },
-];
-
-const moods: MoodKey[] = ['Late Night', 'Road Trip', 'Soft Launch', 'After Hours'];
-
-const serviceLabel = (key: ServiceKey) => {
-  if (key === 'spotify') return 'Spotify';
-  if (key === 'apple') return 'Apple Music';
-  return 'TIDAL';
-};
+import { discoveryTracks, moods, serviceLabel, servicesSeed, tapesSeed } from './src/data/mixtapeData';
+import { getProviderScaffold, getServiceConnectionSummary } from './src/services/musicProviders';
+import { MoodKey, Service, ServiceKey, TabKey } from './src/types/mixtape';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabKey>('tapes');
@@ -130,6 +31,7 @@ export default function App() {
   const connectedCount = services.filter((service) => service.connected).length;
   const filteredTracks = discoveryTracks.filter((track) => track.service === selectedService);
   const selectedServiceCard = services.find((service) => service.key === selectedService) ?? services[0];
+  const selectedProvider = getProviderScaffold(selectedService);
 
   const toggleTrack = (trackId: string) => {
     setSelectedTrackIds((current) =>
@@ -249,6 +151,22 @@ export default function App() {
                   })}
                 </View>
 
+                <View style={styles.integrationCard}>
+                  <View style={styles.integrationHeader}>
+                    <Text style={styles.integrationTitle}>{selectedServiceCard.name} integration scaffold</Text>
+                    <Text style={styles.integrationStatus}>{selectedProvider.authType.toUpperCase()}</Text>
+                  </View>
+                  <Text style={styles.integrationBody}>{selectedProvider.nextStep}</Text>
+                  <Text style={styles.integrationScopeLabel}>Planned scopes</Text>
+                  <View style={styles.scopeRow}>
+                    {selectedProvider.scopes.map((scope) => (
+                      <View key={scope} style={styles.scopePill}>
+                        <Text style={styles.scopeText}>{scope}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+
                 <Text style={styles.fieldLabel}>Mood direction</Text>
                 <View style={styles.pillRow}>
                   {moods.map((mood) => {
@@ -328,24 +246,31 @@ export default function App() {
                 <Text style={styles.sectionAction}>Tap to toggle mock status</Text>
               </View>
 
-              {services.map((service) => (
-                <Pressable
-                  key={service.key}
-                  onPress={() => toggleServiceConnection(service.key)}
-                  style={styles.connectionCard}
-                >
-                  <View style={[styles.connectionStripe, { backgroundColor: service.accent }]} />
-                  <View style={styles.connectionCopy}>
-                    <Text style={styles.connectionTitle}>{service.name}</Text>
-                    <Text style={styles.connectionBody}>{service.description}</Text>
-                  </View>
-                  <View style={service.connected ? styles.connectedBadge : styles.disconnectedBadge}>
-                    <Text style={service.connected ? styles.connectedBadgeText : styles.disconnectedBadgeText}>
-                      {service.connected ? 'Connected' : 'Connect'}
-                    </Text>
-                  </View>
-                </Pressable>
-              ))}
+              {services.map((service) => {
+                const summary = getServiceConnectionSummary(service);
+                const scaffold = getProviderScaffold(service.key);
+
+                return (
+                  <Pressable
+                    key={service.key}
+                    onPress={() => toggleServiceConnection(service.key)}
+                    style={styles.connectionCard}
+                  >
+                    <View style={[styles.connectionStripe, { backgroundColor: service.accent }]} />
+                    <View style={styles.connectionCopy}>
+                      <Text style={styles.connectionTitle}>{service.name}</Text>
+                      <Text style={styles.connectionBody}>{service.description}</Text>
+                      <Text style={styles.connectionStatusLine}>{summary.status}</Text>
+                      <Text style={styles.connectionNextStep}>{scaffold.nextStep}</Text>
+                    </View>
+                    <View style={service.connected ? styles.connectedBadge : styles.disconnectedBadge}>
+                      <Text style={service.connected ? styles.connectedBadgeText : styles.disconnectedBadgeText}>
+                        {service.connected ? 'Connected' : 'Connect'}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
 
               <View style={styles.preferencesCard}>
                 <Text style={styles.sectionTitle}>Import preferences</Text>
@@ -613,6 +538,62 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  integrationCard: {
+    marginTop: 14,
+    borderRadius: 20,
+    padding: 16,
+    backgroundColor: '#151927',
+    borderWidth: 1,
+    borderColor: '#29304A',
+  },
+  integrationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 10,
+  },
+  integrationTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    flex: 1,
+  },
+  integrationStatus: {
+    color: '#FFB08B',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.1,
+  },
+  integrationBody: {
+    color: '#B6BEDB',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  integrationScopeLabel: {
+    color: '#E6EAFA',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  scopeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  scopePill: {
+    backgroundColor: '#10131D',
+    borderColor: '#29304A',
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  scopeText: {
+    color: '#DCE2F8',
+    fontSize: 11,
+  },
   moodPill: {
     backgroundColor: '#171A27',
     borderWidth: 1,
@@ -779,6 +760,18 @@ const styles = StyleSheet.create({
     color: '#A5ADC9',
     fontSize: 13,
     lineHeight: 19,
+  },
+  connectionStatusLine: {
+    color: '#FFE0D2',
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 10,
+  },
+  connectionNextStep: {
+    color: '#8D96B6',
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 4,
   },
   connectedBadge: {
     backgroundColor: '#163221',
